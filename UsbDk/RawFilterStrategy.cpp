@@ -109,7 +109,8 @@ TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_HIDER, "%!FUNC! Got Irp 0x%x",irpStac
                                auto irpStack = IoGetCurrentIrpStackLocation(Irp);
                                irpStack->Parameters.DeviceCapabilities.Capabilities->RawDeviceOK = 1;
                                irpStack->Parameters.DeviceCapabilities.Capabilities->Removable = 0;
-TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_HIDER, "%!FUNC! Set RawDeviceOK");
+                               TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_HIDER,
+                                                      "%!FUNC! Set RawDeviceOK");
                                return STATUS_SUCCESS;
                            });
     case IRP_MN_QUERY_DEVICE_TEXT:

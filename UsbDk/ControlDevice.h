@@ -377,7 +377,6 @@ private:
     NTSTATUS AddHideRuleToSet(const USB_DK_HIDE_RULE &UsbDkRule, HideRulesSet &Set);
 
     /* DeviceID + LocationID list of "Function Driver" registry keys */
-    //typedef CWdmSet<CUsbDkFDriverRule, CLockedAccess, CNonCountingObject> FDriverRulesSet;
     typedef CWdmSet<CUsbDkFDriverRule, CLockedAccess, CCountingObject> FDriverRulesSet;
     FDriverRulesSet m_FDriversRules;
     CString m_RootName;
