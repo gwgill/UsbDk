@@ -411,6 +411,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Win8 Debug|x64'">Use</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Win8 Debug_NoSign|x64'">Use</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="RawFilterStrategy.cpp" />
     <ClCompile Include="RedirectorStrategy.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Win8 Release|Win32'">Use</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Win8.1 Release|Win32'">Use</PrecompiledHeader>

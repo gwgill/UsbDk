@@ -375,6 +375,170 @@ bool CUsbDkControlDevice::ShouldHide(const USB_DK_DEVICE_ID &DevId)
     return b;
 }
 
+/* Ideally we would like to use IoGetDeviceProperty(DevicePropertyInstallState) to see if there */
+/* is a driver that will get installed, or IoOpenDeviceRegistryKey(Device) to look for a Device */
+/* value to see if the Device has a Driver assigned, but unfortunately nothing like this */
+/* is possible within the IRP_MN_QUERY_DEVICE_RELATIONS because the PDO isn't actually valid */
+/* for doing much at that point in time. Instead we create and maintain a list built */
+/* outside the IRP that has the associated registry key path in it for a VidPid/PortHub. This */
+/* isn't a perfect solution, since the registry state will lag when a device is plugged in for */
+/* the first time. The error is usually benign, and will be corrected */
+/* the second time the device is plugged in. */
+bool CUsbDkControlDevice::ShouldRawFiltDevice(CUsbDkChildDevice &Device, bool Is2ndCall)
+{
+    TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE, "%!FUNC! Checking against %S, %S Is2ndCall %d",Device.DeviceID(), Device.LocationID(), Is2ndCall);
+
+    ULONG VidPid, PortHub;
+
+    /* Format is "USB\VID_XXXX&PID_XXXX" */
+    auto status = EightHexToInteger(Device.DeviceID(), 8, 17, &VidPid);
+    if (!NT_SUCCESS(status))
+    {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE, 
+            "%!FUNC! Failed to Convert DeviceID string into ULONG (status %!STATUS!)", status);
+        return false;
+    }
+    
+    /* Format is "Port_#XXXX.Hub_#XXXX" */
+    status = EightHexToInteger(Device.LocationID(), 6, 16, &PortHub);
+    if (!NT_SUCCESS(status))
+    {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE, 
+            "%!FUNC! Failed to Convert Location string into ULONG (status %!STATUS!)", status);
+        return false;
+    }
+            
+    TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE, 
+        "%!FUNC! ChildDevice Ident = 0x%08x 0x%08x'",VidPid, PortHub);
+
+    /* Make sure that the "has a function driver" Set is initialized */
+    if (!m_FDriverInited)
+    {
+        ReloadHasDriverList();
+    }
+
+    /* See if this Device has an entry in the Set */
+    CUsbDkFDriverRule *Entry = nullptr;
+    bool hasentry = false;
+    bool hasfdriv = true;        /* default to not adding RawFilter */
+    const auto &FiltVisitor = [VidPid, PortHub, &Entry, &hasentry, &hasfdriv, this](CUsbDkFDriverRule *e) -> bool
+    {
+        if (e->Match(VidPid, PortHub))
+        {
+            Entry = e;
+
+            /* Check if there is a Driver value */
+            CRegKey regkey;
+            
+            auto status = regkey.Open(*e->KeyName());
+            if (!NT_SUCCESS(status))
+            {
+                TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_CONTROLDEVICE,
+                    "%!FUNC! Failed to open Key '%wZ' registry key",e->KeyName());
+                hasentry = false;            /* Do ReloadHasDriverList() */
+                return false;                /* Terminate ForEach() */
+            }
+
+            hasentry = true;            /* Don't ReloadHasDriverList() */
+
+            CStringHolder DriverNameHolder;
+            status = DriverNameHolder.Attach(TEXT("Driver"));
+            ASSERT(NT_SUCCESS(status));
+
+            CWdmMemoryBuffer Buffer;
+            status = regkey.QueryValueInfo(*DriverNameHolder, KeyValuePartialInformation, Buffer);
+            if (!NT_SUCCESS(status))
+            {
+                TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE, 
+                    "%!FUNC! Failed to read value '%wZ' (status %!STATUS!)", DriverNameHolder, status);
+                hasfdriv = false;
+            } else {
+                TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE, 
+                    "%!FUNC! Was able to read value '%wZ' (status %!STATUS!)", DriverNameHolder, status);
+                hasfdriv = true;
+            }
+            return false;            /* Terminate ForEach() */
+        }
+        return true;            /* Continue ForEach() */
+    };
+    const_cast<FDriverRulesSet*>(&m_FDriversRules)->ForEach(FiltVisitor);
+
+    TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE, 
+        "%!FUNC! Check FDriverRulesSet returned hasentry %d, hasfdriv %d",hasentry, hasfdriv);
+
+    /* If there's no Set entry, then try and create one and check again. */
+    if (!hasentry) {
+
+        if (!Is2ndCall)          /* Try re-creating the list */
+        {
+            ReloadHasDriverList();
+    
+            /* Check again */
+            hasentry = false;
+            hasfdriv = true;       /* default to not adding RawFilter. */
+
+            const_cast<FDriverRulesSet*>(&m_FDriversRules)->ForEach(FiltVisitor);
+        }
+
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE, 
+            "%!FUNC! Check 2 FDriverRulesSet got Set count %d, hasentry %d, hasfdriv %d",
+                                          m_FDriversRules.GetCount(),hasentry, hasfdriv);
+
+        /* If this fails (!hasentry) then either our assumptions in creating the Set */
+        /* are wrong (i.e. Microsoft have changed the Registry layout for Enum\USB, in which */
+        /* case GetCount() will be 0), or this is the first time the device has been plugged */
+        /* in to the port, in which case we don't have a way of knowing if it has a driver. */
+        /* We default to adding a Raw Filter so that the common case of plugging in a device */
+        /* with no driver works with UsbDk, and take the (hopefully small) risk that this */
+        /* won't disturb any device that has a driver. In the unlikely event this happens, */
+        /* then re-plugging the device or redirecting via UsbDk should fix it. */
+        if (m_FDriversRules.GetCount() > 0 && !hasentry)
+        {
+            hasfdriv = false;
+
+            TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE, 
+                "%!FUNC! Check 2 FDriverRulesSet has no information so defaulting hasfdriv %d",hasfdriv);
+        }
+    }
+
+    /* If a Function Driver for a device is installed after UsbDk and after a device is first */
+    /* plugged in, then an Enum/USB entry will have been created for it, and PnP will ignore */
+    /* the new Function Driver and assume that the device will continue to be driven in Raw mode. */
+    /* This will create difficulty for the user, who then has to uninstall the device manually */
+    /* using Device Manager to make it work with its Function Driver as well as UsbDk. We can */
+    /* avoid this problem if we set the CONFIGFLAG_REINSTALL in the Enum/USB ConfigFlags, so */
+    /* that PnP checks for a Function Driver on a Raw device each time it is plugged in. */
+    if (Is2ndCall && Entry != nullptr && hasentry && !hasfdriv)
+    {
+        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_CONTROLDEVICE,
+                    "%!FUNC! Setting m_SetReinstall flag on Key '%wZ'",Entry->KeyName());
+        status = Device.SetRawDeviceToReinstall(Entry->KeyName());
+        if (!NT_SUCCESS(status))
+        {
+            TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_CONTROLDEVICE,
+                "%!FUNC! Failed to SetRawDeviceToReinstall (status %!STATUS!)",status);
+        }
+    }
+    return !hasfdriv;        /* Add RawFilter if there is no function driver */
+}
+
+bool CUsbDkControlDevice::ShouldRawFilt(const USB_DK_DEVICE_ID &DevId)
+{
+    bool b = false;
+
+    TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE, 
+        "%!FUNC! About to call ShouldRawFiltDevice()");
+
+    EnumUsbDevicesByID(DevId,
+        [&b, this](CUsbDkChildDevice *Child) -> bool
+    {
+        b = ShouldRawFiltDevice(*Child, true);
+        return false;
+    });
+
+    return b;
+}
+
 bool CUsbDkControlDevice::EnumerateDevices(USB_DK_DEVICE_INFO *outBuff, size_t numberAllocatedDevices, size_t &numberExistingDevices)
 {
     numberExistingDevices = 0;
@@ -1293,3 +1457,234 @@ NTSTATUS CUsbDkControlDevice::AddPersistentHideRule(const USB_DK_HIDE_RULE &UsbD
     }
     return STATUS_INVALID_PARAMETER;
 }
+
+/* Create or re-create the "Has Function Driver" registry key Set */
+NTSTATUS CUsbDkControlDevice::ReloadHasDriverList()
+{
+    /* See if we need to figure out the Registry root of ...\Enum\USB */
+    if (!m_FDriverInited)
+    {
+        /* Find the first filter */
+        CUsbDkFilterDevice *ffilter = nullptr;
+        m_FilterDevices.ForEach([&ffilter](CUsbDkFilterDevice *Filter)
+            {
+                ffilter = Filter;
+                return false;
+            });
+    
+        if (ffilter == nullptr) {
+            TraceEvents(TRACE_LEVEL_ERROR, TRACE_WDFDEVICE, "%!FUNC! No filters");
+            STATUS_SUCCESS;        /* Ignore error ? */
+        }
+    
+        /* Get the Hub Driver HW key */
+        WDFKEY hwkeyh;
+        auto status = WdfDeviceOpenRegistryKey(ffilter->WdfObject(), PLUGPLAY_REGKEY_DEVICE, KEY_READ,
+                                               WDF_NO_OBJECT_ATTRIBUTES, &hwkeyh);
+        if (!NT_SUCCESS(status)) {
+            TraceEvents(TRACE_LEVEL_ERROR, TRACE_WDFDEVICE, "%!FUNC! Failed to get Control HWKey %!STATUS!",status);
+            return status;
+        }
+    
+        CRegKey regkey;
+        regkey.Acquire(WdfRegistryWdmGetHandle(hwkeyh));
+    
+        // Could also use ObReferenceObjectByHandle(), ObQueryObjectName(), ObDereferenceObject()
+        CWdmMemoryBuffer InfoBuffer;
+        status = regkey.QueryKeyInfo(KeyNameInformation, InfoBuffer);
+        if (!NT_SUCCESS(status)) {
+            TraceEvents(TRACE_LEVEL_ERROR, TRACE_WDFDEVICE, "%!FUNC! Failed to get Key path %!STATUS!",status);
+            WdfRegistryClose(hwkeyh);
+            return status;
+        }
+    
+        auto NameInfo = reinterpret_cast<PKEY_NAME_INFORMATION>(InfoBuffer.Ptr());
+        CStringHolder RootHolder;
+        RootHolder.Attach(NameInfo->Name, static_cast<USHORT>(NameInfo->NameLength));
+    
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_WDFDEVICE, "%!FUNC! Got Hub HW reg path '%wZ'",RootHolder);
+    
+        WdfRegistryClose(hwkeyh);
+    
+        /* Now we truncate m_RootName at the end of "\Enum\USB\" */
+        if (!RootHolder.TruncateAfter(TEXT("\\Enum\\USB\\"))) {
+            return STATUS_FILE_NOT_AVAILABLE;        /* Hmm. */
+        }
+        
+        m_RootName.Create(RootHolder);
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_WDFDEVICE, "%!FUNC! Got Base HW reg path '%wZ'",
+                                                                                  m_RootName);
+        m_FDriverInited = true;
+    }
+
+    /* Open our root key */
+    CRegKey rootkey;
+    auto status2 = rootkey.Open(*m_RootName);
+    if (!NT_SUCCESS(status2))
+    {
+        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_CONTROLDEVICE,
+            "%!FUNC! Failed to open RootKey '%wZ' registry key",m_RootName);
+        return status2;
+    }
+
+    FDriverRulesSet Set;
+
+    CStringHolder LocationNameHolder;
+    auto status = LocationNameHolder.Attach(TEXT("LocationInformation"));
+    ASSERT(NT_SUCCESS(status));
+
+    /* Search the sub keys for "VID_????&PID_????" */
+    status = rootkey.ForEachSubKey([rootkey, &LocationNameHolder, &Set, this]
+                                                    (CStringHolder &Sub1Name)
+    {
+        if (!Sub1Name.WCMatch(TEXT("VID_????&PID_????")))
+            return;
+
+        //TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_CONTROLDEVICE,
+        //   "%!FUNC! Found matching Sub1Name '%wZ'",Sub1Name);
+
+        /* Open the sub-key */
+        CRegKey sub1key;
+        auto status = sub1key.Open(rootkey, *Sub1Name);
+        if (!NT_SUCCESS(status))
+        {
+            TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_CONTROLDEVICE,
+                "%!FUNC! Failed to open Sub1Key '%wZ' %!STATUS!",Sub1Name,status);
+            return;
+        }
+
+        /* Search the instance sub keys */
+        status = sub1key.ForEachSubKey([sub1key, &Sub1Name, &LocationNameHolder, &Set, this]
+                                                                   (CStringHolder &Sub2Name)
+        {
+            //TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_CONTROLDEVICE,
+            //   "%!FUNC! Searching instance '%wZ'",Sub2Name);
+
+            /* Open the instance sub-key */
+            CRegKey sub2key;
+            auto status = sub2key.Open(sub1key, *Sub2Name);
+            if (!NT_SUCCESS(status))
+            {
+                TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_CONTROLDEVICE,
+                    "%!FUNC! Failed to open instance '%wZ' %!STATUS!",Sub2Name,status);
+                return;
+            }
+
+            /* Get the a 'LocationInformation' value */
+            CWdmMemoryBuffer Buffer;
+            status = sub2key.QueryValueInfo(*LocationNameHolder, KeyValuePartialInformation, Buffer);
+            if (!NT_SUCCESS(status))
+            {
+                TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE, 
+                    "%!FUNC! Failed to read value %wZ (status %!STATUS!)", LocationNameHolder, status);
+                return;
+            }
+            //TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE, 
+            //    "%!FUNC! Found subkey 'LocationInfo'");
+
+            auto Info = reinterpret_cast<PKEY_VALUE_PARTIAL_INFORMATION>(Buffer.Ptr());
+
+            //TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE, 
+            //        "%!FUNC! Info Type = %d, Length = %d", Info->Type,Info->DataLength);
+            if (Info->Type != REG_SZ
+             || Info->DataLength > (21 * sizeof(WCHAR)))
+                return;
+
+            CStringHolder LocationValueHolder;
+            status = LocationValueHolder.Attach(reinterpret_cast<PCWSTR>(&Info->Data[0]),
+                                                     static_cast<USHORT>(Info->DataLength));
+            if (!NT_SUCCESS(status))
+            {
+                TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE, 
+                    "%!FUNC! Failed to Attach to Location value (status %!STATUS!)", status);
+                return;
+            }
+            
+            //TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE, 
+            //    "%!FUNC! Location = '%wZ'",LocationValueHolder);
+
+            if (!LocationValueHolder.WCMatch(TEXT("Port_#????.Hub_#????")))
+                return;
+
+            TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE, 
+                "%!FUNC! Function Driver Ident = %wZ %wZ'",Sub1Name, LocationValueHolder);
+
+            /* Form the overall device sub-key name */
+            CString KeyName;
+            status = KeyName.Append(m_RootName);
+            if (NT_SUCCESS(status)) status = KeyName.Append(Sub1Name);
+            if (NT_SUCCESS(status)) status = KeyName.Append(TEXT("\\"));
+            if (NT_SUCCESS(status)) status = KeyName.Append(Sub2Name);
+            if (!NT_SUCCESS(status))
+            {
+                TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE, 
+                    "%!FUNC! Failed to create overall sub-key name (status %!STATUS!)", status);
+                return;
+            }
+            TraceEvents(TRACE_LEVEL_ERROR, TRACE_WDFDEVICE, "%!FUNC! Overall sub-key name '%wZ'",
+                                                                                        KeyName);
+
+            /* Get the device ID as integers */
+            ULONG VidPid, PortHub;
+
+            status = EightHexToInteger(Sub1Name, 4, 13, &VidPid);
+            if (!NT_SUCCESS(status))
+            {
+                TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE, 
+                    "%!FUNC! Failed to Convert VidPid string into ULONG (status %!STATUS!)", status);
+                return;
+            }
+            
+            status = EightHexToInteger(LocationValueHolder, 6, 16, &PortHub);
+            if (!NT_SUCCESS(status))
+            {
+                TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE, 
+                    "%!FUNC! Failed to Convert PortHub string into ULONG (status %!STATUS!)", status);
+                return;
+            }
+            
+            TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE, 
+                "%!FUNC! Function Driver Ident = 0x%08x 0x%08x'",VidPid, PortHub);
+
+            /* (Note KeyName will be empty after the constructor due to swap.) */
+            CObjHolder<CUsbDkFDriverRule> NewRule(new CUsbDkFDriverRule(VidPid, PortHub, KeyName));
+            if (!NewRule)
+            {
+                TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE,
+                     "%!FUNC! Failed to allocate new FDriver rule");
+                return;
+            }
+
+            if(!Set.Add(NewRule))
+            {
+                TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE,
+                   "%!FUNC! failed. FDriver rule already present.");
+                return;
+            }
+
+            NewRule.detach();
+        });
+
+        if (status == STATUS_OBJECT_NAME_NOT_FOUND)
+           status = STATUS_SUCCESS;
+    });
+
+    if (status == STATUS_OBJECT_NAME_NOT_FOUND)
+        status = STATUS_SUCCESS;
+
+    if (!NT_SUCCESS(status))
+    {
+        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_CONTROLDEVICE,
+            "%!FUNC! Failed to open Sub1Keys of '%wZ' registry key",PCUNICODE_STRING(m_RootName));
+        return status;
+    }
+
+    /* Overwrite m_FDriversRules with the temporary set */
+    Set.MoveList(m_FDriversRules);
+
+    TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE, 
+         "%!FUNC! We now have %d entries in DFDriversRules",m_FDriversRules.GetCount());
+
+    return STATUS_SUCCESS;
+}
+

@@ -215,6 +215,7 @@ public:
     void CounterIncrement() { m_Counter++; }
     void CounterDecrement() { m_Counter--; }
     ULONG GetCount() { return m_Counter; }
+    void ResetCount() { m_Counter = 0; }
 private:
     ULONG m_Counter = 0;
 };
@@ -224,6 +225,7 @@ class CNonCountingObject
 public:
     void CounterIncrement() { }
     void CounterDecrement() { }
+    void ResetCount() {}
 protected:
     ULONG GetCount() { return 0; }
 };
@@ -449,6 +451,25 @@ public:
 
     CWdmSet(const CWdmSet&) = delete;
     CWdmSet& operator= (const CWdmSet&) = delete;
+
+    /* Move from this Set to the other Set */
+    void MoveList(CWdmSet &OtherList)
+    {
+        CLockedContext<TAccessStrategy> LockedContextOther(OtherList);
+        TInternalList &OtherInternalList = OtherList.m_Objects;
+        OtherInternalList.Clear();
+        OtherList.ResetCount();
+
+        CLockedContext<TAccessStrategy> LockedContextThis(*this);
+        m_Objects.ForEachDetached([this, &OtherList, &OtherInternalList](TEntryType *ExistingEntry)
+                                  {
+                                      OtherInternalList.PushBack(ExistingEntry);
+                                      OtherList.CounterIncrement();
+                                      CounterDecrement();
+                                      return true;
+                                  });
+    }
+
 private:
     void SwapLists(TInternalList &OtherList)
     {
@@ -541,6 +562,12 @@ public:
 
     size_t ToWSTR(PWCHAR Buffer, size_t SizeBytes) const;
 
+    /* Return true on success */
+    bool TruncateAfter(PCWSTR patn);
+
+    /* Character wilcard match. Return true on match */
+    bool WCMatch(PCWSTR patn);
+
 protected:
     CStringBase(const CStringBase&) = delete;
     CStringBase& operator= (const CStringBase&) = delete;
@@ -549,6 +576,8 @@ protected:
 
     UNICODE_STRING m_String = {};
 };
+
+/* Holds a UNICODE_STRING referencing a string stored elsewhere. */
 class CStringHolder : public CStringBase
 {
 public:
@@ -571,6 +600,7 @@ private:
     CStringHolder& operator= (const CStringHolder&) = delete;
 };
 
+/* Stores a UNICODE_STRING it allocates. */
 class CString : public CStringBase
 {
 public:
@@ -592,6 +622,21 @@ public:
     NTSTATUS Append(PCUNICODE_STRING String);
     NTSTATUS Append(ULONG Num, ULONG Base = 10);
     void Destroy();
+
+    NTSTATUS Append(NTSTRSAFE_PCWSTR String)
+    {
+        CStringHolder StringH;
+        auto status = StringH.Attach(String);
+        if (!NT_SUCCESS(status))
+            return status;
+        return Append(StringH);
+    }
+
+    void Swap(CString &OtherString) {
+        UNICODE_STRING TempString = m_String;
+        m_String = OtherString.m_String;
+        OtherString.m_String = TempString;
+    }
 
     CString()
     { }
@@ -663,3 +708,20 @@ private:
 
 NTSTATUS
 UsbDkCreateCurrentProcessHandle(HANDLE &Handle);
+
+/* Convert 2x4 digit hex unicode characters into a 32 bit value */
+NTSTATUS EightHexToInteger(
+    PCUNICODE_STRING String,    /* String to read from */
+    USHORT           MsOff,     /* Char offset into string of MS characters */
+    USHORT           LsOff,     /* Char offset into string of LS characters */
+    PULONG           Value      /* Output */
+);
+
+/* Convert 2x4 digit hex unicode characters into a 32 bit value, Sz version. */
+NTSTATUS EightHexToInteger(
+    PCWCHAR          String,    /* String to read from */
+    USHORT           MsOff,     /* Char offset into string of MS characters */
+    USHORT           LsOff,     /* Char offset into string of LS characters */
+    PULONG           Value      /* Output */
+);
+

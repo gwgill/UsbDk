@@ -30,6 +30,8 @@ public:
     NTSTATUS Open(const UNICODE_STRING &RegPath)
     { return Open(CRegKey(), RegPath); }
 
+    void Acquire(HANDLE key) { m_Key = key; }
+
     template<typename TFunctor>
     NTSTATUS ForEachSubKey(TFunctor Functor)
     {
@@ -64,14 +66,21 @@ public:
         }
     }
 
-protected:
-    NTSTATUS QuerySubkeyInfo(ULONG Index,
-                             KEY_INFORMATION_CLASS InfoClass,
-                             CWdmMemoryBuffer &Buffer);
+    NTSTATUS QueryKeyInfo(KEY_INFORMATION_CLASS InfoClass,
+                          CWdmMemoryBuffer &Buffer);
 
     NTSTATUS QueryValueInfo(const UNICODE_STRING &ValueName,
                             KEY_VALUE_INFORMATION_CLASS InfoClass,
                             CWdmMemoryBuffer &Buffer);
+
+    NTSTATUS SetValueInfo(const UNICODE_STRING &ValueName,
+                            PKEY_VALUE_PARTIAL_INFORMATION Info);
+
+protected:
+
+    NTSTATUS QuerySubkeyInfo(ULONG Index,
+                             KEY_INFORMATION_CLASS InfoClass,
+                             CWdmMemoryBuffer &Buffer);
 
     HANDLE m_Key = nullptr;
 };

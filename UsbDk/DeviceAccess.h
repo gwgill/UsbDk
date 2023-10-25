@@ -52,6 +52,7 @@ public:
     ULONG GetAddress();
     CRegText *GetDeviceID() { return new CRegSz(QueryBusID(BusQueryDeviceID)); }
     CRegText *GetInstanceID() { return new CRegSz(QueryBusID(BusQueryInstanceID)); }
+    CRegText *GetLocationID() { return new CRegSz(QueryDeviceText(DeviceTextLocationInformation)); }
     bool QueryPowerData(CM_POWER_DATA& powerData);
 protected:
     PDEVICE_OBJECT m_DevObj;
@@ -59,8 +60,10 @@ protected:
 private:
     PWCHAR QueryBusID(BUS_QUERY_ID_TYPE idType);
     NTSTATUS QueryCapabilities(DEVICE_CAPABILITIES &Capabilities);
+    PWCHAR QueryDeviceText(DEVICE_TEXT_TYPE txType);
 
     static PWCHAR MakeNonPagedDuplicate(BUS_QUERY_ID_TYPE idType, PWCHAR idData);
+    static PWCHAR MakeNonPagedDuplicateSz(PWCHAR txData);
     static SIZE_T GetIdBufferLength(BUS_QUERY_ID_TYPE idType, PWCHAR idData);
 };
 
@@ -118,7 +121,8 @@ private:
 
 bool UsbDkGetWdmDeviceIdentity(const PDEVICE_OBJECT PDO,
                                CObjHolder<CRegText> *DeviceID,
-                               CObjHolder<CRegText> *InstanceID = nullptr);
+                               CObjHolder<CRegText> *InstanceID = nullptr,
+                               CObjHolder<CRegText> *LocationID = nullptr);
 
 USB_DK_DEVICE_SPEED UsbDkWdmUsbDeviceGetSpeed(PDEVICE_OBJECT PDO, PDRIVER_OBJECT DriverObject);
 

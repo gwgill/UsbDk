@@ -46,6 +46,34 @@ NTSTATUS CRegKey::Open(const CRegKey &ParentKey, const UNICODE_STRING &RegPath)
     return status;
 }
 
+NTSTATUS CRegKey::QueryKeyInfo(KEY_INFORMATION_CLASS InfoClass,
+                                  CWdmMemoryBuffer &Buffer)
+{
+    ULONG BytesNeeded = 0;
+    NTSTATUS status = STATUS_BUFFER_TOO_SMALL;
+
+    while ((status == STATUS_BUFFER_OVERFLOW) || (status == STATUS_BUFFER_TOO_SMALL))
+    {
+        status = Buffer.Recreate(BytesNeeded, PagedPool);
+        if (NT_SUCCESS(status))
+        {
+            status = ZwQueryKey(m_Key,
+                                    InfoClass,
+                                    Buffer.Ptr(),
+                                    static_cast<ULONG>(Buffer.Size()),
+                                    &BytesNeeded);
+        }
+    }
+
+    if (!NT_SUCCESS(status) && (status != STATUS_NO_MORE_ENTRIES))
+    {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_REGISTRY,
+            "%!FUNC! Failed to query key info, info class %d (status: %!STATUS!)", InfoClass, status);
+    }
+
+    return status;
+}
+
 NTSTATUS CRegKey::QuerySubkeyInfo(ULONG Index,
                                   KEY_INFORMATION_CLASS InfoClass,
                                   CWdmMemoryBuffer &Buffer)
@@ -103,5 +131,17 @@ NTSTATUS CRegKey::QueryValueInfo(const UNICODE_STRING &ValueName,
             "%!FUNC! Failed to query value %wZ, info class %d (status: %!STATUS!)", &ValueName, InfoClass, status);
     }
 
+    return status;
+}
+
+NTSTATUS CRegKey::SetValueInfo(const UNICODE_STRING &ValueName,
+                                 PKEY_VALUE_PARTIAL_INFORMATION Info)
+{
+    auto status = ZwSetValueKey(m_Key,
+                             const_cast<PUNICODE_STRING>(&ValueName),
+                             NULL,
+                             Info->Type,
+                             Info->Data,
+                             Info->DataLength);
     return status;
 }

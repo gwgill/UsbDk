@@ -156,6 +156,41 @@ NTSTATUS CWdmDeviceAccess::QueryCapabilities(DEVICE_CAPABILITIES &Capabilities)
     return status;
 }
 
+/* txType can be DeviceTextDescription or DeviceTextLocationInformation */
+PWCHAR CWdmDeviceAccess::QueryDeviceText(DEVICE_TEXT_TYPE txType)
+{
+    CIrp irp;
+
+    auto status = irp.Create(m_DevObj);
+
+    if (!NT_SUCCESS(status))
+    {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVACCESS, "%!FUNC! Error %!STATUS! during IRP creation", status);
+        return nullptr;
+    }
+
+    irp.Configure([txType] (PIO_STACK_LOCATION s)
+                  {
+                      s->MajorFunction = IRP_MJ_PNP;
+                      s->MinorFunction = IRP_MN_QUERY_DEVICE_TEXT;
+                      s->Parameters.QueryDeviceText.DeviceTextType = txType;
+                  });
+
+    status = irp.SendSynchronously();
+
+    if (!NT_SUCCESS(status))
+    {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVACCESS, "%!FUNC! Error %!STATUS! during %!devtx! query", status, txType);
+        return nullptr;
+    }
+
+    PWCHAR txData;
+    irp.ReadResult([&txData](ULONG_PTR information)
+                   { txData = reinterpret_cast<PWCHAR>(information); });
+
+    return (txData != nullptr) ? MakeNonPagedDuplicateSz(txData) : nullptr;
+}
+
 SIZE_T CWdmDeviceAccess::GetIdBufferLength(BUS_QUERY_ID_TYPE idType, PWCHAR idData)
 {
     switch (idType)
@@ -186,6 +221,7 @@ bool CWdmDeviceAccess::QueryPowerData(CM_POWER_DATA& powerData)
 #endif
 }
 
+#if 0
 static void PowerRequestCompletion(
     _In_ PDEVICE_OBJECT DeviceObject,
     _In_ UCHAR MinorFunction,
@@ -202,6 +238,7 @@ static void PowerRequestCompletion(
     TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVACCESS, "%!FUNC! -> D%d", PowerState.DeviceState - 1);
     pev->Set();
 }
+#endif
 
 PWCHAR CWdmDeviceAccess::MakeNonPagedDuplicate(BUS_QUERY_ID_TYPE idType, PWCHAR idData)
 {
@@ -218,6 +255,24 @@ PWCHAR CWdmDeviceAccess::MakeNonPagedDuplicate(BUS_QUERY_ID_TYPE idType, PWCHAR 
     }
 
     ExFreePool(idData);
+    return static_cast<PWCHAR>(newIdData);
+}
+
+PWCHAR CWdmDeviceAccess::MakeNonPagedDuplicateSz(PWCHAR txData)
+{
+    auto bufferLength = CRegSz::GetBufferLength(txData);
+
+    auto newIdData = ExAllocatePoolWithTag(USBDK_NON_PAGED_POOL, bufferLength, 'IDHR');
+    if (newIdData != nullptr)
+    {
+        RtlCopyMemory(newIdData, txData, bufferLength);
+    }
+    else
+    {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVACCESS, "%!FUNC! Failed to allocate non-paged buffer for Sz");
+    }
+
+    ExFreePool(txData);
     return static_cast<PWCHAR>(newIdData);
 }
 
@@ -253,6 +308,7 @@ NTSTATUS CWdmDeviceAccess::QueryForInterface(const GUID &guid, __out INTERFACE &
 NTSTATUS CWdmUsbDeviceAccess::Reset(bool ForceD0)
 {
     CIoControlIrp Irp;
+#if 0 // #115 reports that this can cause a WDF_VIOLATION (10d) error code with some devices.
     CM_POWER_DATA powerData;
     if (ForceD0 && QueryPowerData(powerData) && powerData.PD_MostRecentPowerState != PowerDeviceD0)
     {
@@ -266,6 +322,11 @@ NTSTATUS CWdmUsbDeviceAccess::Reset(bool ForceD0)
             Event.Wait();
         }
     }
+#else
+	ForceD0;
+#endif
+
+    TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVACCESS, "%!FUNC! About to sed IOCTL_INTERNAL_USB_CYCLE_PORT");
 
     auto status = Irp.Create(m_DevObj, IOCTL_INTERNAL_USB_CYCLE_PORT);
 
@@ -362,7 +423,8 @@ USB_DK_DEVICE_SPEED UsbDkWdmUsbDeviceGetSpeed(PDEVICE_OBJECT DevObj, PDRIVER_OBJ
 
 bool UsbDkGetWdmDeviceIdentity(const PDEVICE_OBJECT PDO,
                                CObjHolder<CRegText> *DeviceID,
-                               CObjHolder<CRegText> *InstanceID)
+                               CObjHolder<CRegText> *InstanceID,
+                               CObjHolder<CRegText> *LocationID)
 {
     CWdmDeviceAccess pdoAccess(PDO);
 
@@ -382,6 +444,16 @@ bool UsbDkGetWdmDeviceIdentity(const PDEVICE_OBJECT PDO,
         if (!(*InstanceID) || (*InstanceID)->empty())
         {
             TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVACCESS, "%!FUNC! No Instance ID read");
+            return false;
+        }
+    }
+
+    if (LocationID != nullptr)
+    {
+        *LocationID = pdoAccess.GetLocationID();
+        if (!(*LocationID) || (*LocationID)->empty())
+        {
+            TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVACCESS, "%!FUNC! No Location ID read");
             return false;
         }
     }

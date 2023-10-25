@@ -44,3 +44,20 @@ private:
 
     CStopWatch m_RemovalStopWatch;
 };
+
+class CUsbDkRawFilterStrategy : public CUsbDkNullFilterStrategy
+{
+public:
+    virtual NTSTATUS Create(CUsbDkFilterDevice *Owner) override;
+    virtual void Delete() override;
+
+    virtual NTSTATUS PNPPreProcess(PIRP Irp) override;
+    virtual NTSTATUS MakeAvailable() override
+    {
+        return STATUS_SUCCESS;
+    }
+
+private:
+    void PatchDeviceID(PIRP Irp);
+    NTSTATUS PatchDeviceText(PIRP Irp);
+};

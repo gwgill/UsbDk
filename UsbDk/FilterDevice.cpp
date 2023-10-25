@@ -26,6 +26,7 @@
 #include "trace.h"
 #include "FilterDevice.tmh"
 #include "DeviceAccess.h"
+#include "Registry.h"
 #include "ControlDevice.h"
 #include "UsbDkNames.h"
 
@@ -288,8 +289,9 @@ void CUsbDkHubFilterStrategy::DropRemovedDevices(const CDeviceRelations &Relatio
                                  });
     ToBeDeleted.ForEach([this](CUsbDkChildDevice *Device) -> bool
                         {
-                          m_ControlDevice->NotifyRedirectionRemoved(*Device);
-                          return true;
+                            Device->MarkRawDeviceToReinstall();
+                            m_ControlDevice->NotifyRedirectionRemoved(*Device);
+                            return true;
                         });
 }
 
@@ -327,7 +329,8 @@ void CUsbDkHubFilterStrategy::RegisterNewChild(PDEVICE_OBJECT PDO)
 
     CObjHolder<CRegText> DevID;
     CObjHolder<CRegText> InstanceID;
-    if (!UsbDkGetWdmDeviceIdentity(PDO, &DevID, &InstanceID))
+    CObjHolder<CRegText> LocationID;
+    if (!UsbDkGetWdmDeviceIdentity(PDO, &DevID, &InstanceID, &LocationID))
     {
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_FILTERDEVICE, "%!FUNC! Cannot query device identity");
         return;
@@ -336,6 +339,7 @@ void CUsbDkHubFilterStrategy::RegisterNewChild(PDEVICE_OBJECT PDO)
     TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_FILTERDEVICE, "%!FUNC! Registering new child (PDO: %p):", PDO);
     DevID->Dump();
     InstanceID->Dump();
+    LocationID->Dump();
 
     // Not a USB device -> do not register
     if (!DevID->MatchPrefix(L"USB\\"))
@@ -389,8 +393,8 @@ void CUsbDkHubFilterStrategy::RegisterNewChild(PDEVICE_OBJECT PDO)
         return;
     }
 
-    CUsbDkChildDevice *Device = new CUsbDkChildDevice(DevID, InstanceID, Port, Speed, DevDescriptor,
-                                                      CfgDescriptors, *m_Owner, PDO);
+    CUsbDkChildDevice *Device = new CUsbDkChildDevice(DevID, InstanceID, LocationID, Port, Speed,
+                                                    DevDescriptor, CfgDescriptors, *m_Owner, PDO);
 
     if (Device == nullptr)
     {
@@ -400,6 +404,7 @@ void CUsbDkHubFilterStrategy::RegisterNewChild(PDEVICE_OBJECT PDO)
 
     DevID.detach();
     InstanceID.detach();
+    LocationID.detach();
 
     Children().PushBack(Device);
 
@@ -443,7 +448,8 @@ bool CUsbDkHubFilterStrategy::FetchConfigurationDescriptors(CWdmUsbDeviceAccess 
 void CUsbDkHubFilterStrategy::ApplyRedirectionPolicy(CUsbDkChildDevice &Device)
 {
     if (m_ControlDevice->ShouldRedirect(Device) ||
-        m_ControlDevice->ShouldHideDevice(Device))
+        m_ControlDevice->ShouldHideDevice(Device) ||
+        m_ControlDevice->ShouldRawFiltDevice(Device, false))
     {
         if (Device.AttachToDeviceStack())
         {
@@ -589,7 +595,7 @@ bool CUsbDkFilterDevice::CStrategist::SelectStrategy(PDEVICE_OBJECT DevObj)
 
     // Get device ID
     CObjHolder<CRegText> DevID;
-    if (!UsbDkGetWdmDeviceIdentity(DevObj, &DevID, nullptr))
+    if (!UsbDkGetWdmDeviceIdentity(DevObj, &DevID, nullptr, nullptr))
     {
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_FILTERDEVICE, "%!FUNC! Cannot query device ID");
         return false;
@@ -619,7 +625,7 @@ bool CUsbDkFilterDevice::CStrategist::SelectStrategy(PDEVICE_OBJECT DevObj)
 
     // Get instance ID
     CObjHolder<CRegText> InstanceID;
-    if (!UsbDkGetWdmDeviceIdentity(DevObj, nullptr, &InstanceID))
+    if (!UsbDkGetWdmDeviceIdentity(DevObj, nullptr, &InstanceID, nullptr))
     {
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_FILTERDEVICE, "%!FUNC! Cannot query instance ID");
         return false;
@@ -672,6 +678,15 @@ bool CUsbDkFilterDevice::CStrategist::SelectStrategy(PDEVICE_OBJECT DevObj)
         TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_FILTERDEVICE, "%!FUNC! Assigning hidden USB device strategy");
         m_Strategy->Delete();
         m_Strategy = &m_HiderStrategy;
+        return true;
+    }
+
+    // Mark as Raw strategy to allow Redirect CYCLE_PORT to work.
+    if (m_Strategy->GetControlDevice()->ShouldRawFilt(ID))
+    {
+        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_FILTERDEVICE, "%!FUNC! Assigning Raw filer device strategy");
+        m_Strategy->Delete();
+        m_Strategy = &m_RawFilterStrategy;
         return true;
     }
 
@@ -798,4 +813,58 @@ void CUsbDkChildDevice::DetermineDeviceClasses()
     }
 #endif
     TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_FILTERDEVICE, "Class mask %08X", m_ClassMaskForExtHider);
+}
+
+#ifndef CONFIGFLAG_REINSTALL        /* This is in um/RegStr.h */
+# define CONFIGFLAG_REINSTALL            0x00000020      // Redo install
+#endif
+
+void CUsbDkChildDevice::MarkRawDeviceToReinstall()
+{
+    if (!m_SetReinstall)
+        return;
+
+    TraceEvents(TRACE_LEVEL_ERROR, TRACE_FILTERDEVICE, "%!FUNC! Found m_SetReinstall flag "
+                                                         "on Child PDO 0x%p",PDO());
+    CRegKey regkey;
+       
+    auto status = regkey.Open(*m_HwKeyPath);
+    if (!NT_SUCCESS(status))
+    {
+        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_CONTROLDEVICE,
+            "%!FUNC! Failed to open Key '%wZ' registry key",m_HwKeyPath);
+        return;
+    }
+    CStringHolder ConfigFlagsNameHolder;
+    status = ConfigFlagsNameHolder.Attach(TEXT("ConfigFlags"));
+    ASSERT(NT_SUCCESS(status));
+    
+    CWdmMemoryBuffer Buffer;
+    status = regkey.QueryValueInfo(*ConfigFlagsNameHolder, KeyValuePartialInformation, Buffer);
+    if (!NT_SUCCESS(status))
+    {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE, 
+            "%!FUNC! Failed to read value '%wZ\\ConfigFlags' (status %!STATUS!)",
+                                                   m_HwKeyPath, status);
+        return;
+    }
+       auto Info = reinterpret_cast<PKEY_VALUE_PARTIAL_INFORMATION>(Buffer.Ptr());
+
+    if (Info->Type != REG_DWORD
+     || Info->DataLength != sizeof(DWORD32))
+    {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE,
+            "%!FUNC! Wrong data type/length for value %wZ\\ConfigFlags", m_HwKeyPath);
+        return;
+    }
+    DWORD32 *flags = reinterpret_cast<DWORD32 *>(Info->Data);
+    *flags |= CONFIGFLAG_REINSTALL;
+
+    status = regkey.SetValueInfo(*ConfigFlagsNameHolder, Info);
+    if (!NT_SUCCESS(status))
+    {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE,
+               "%!FUNC! Failed to update %wZ\\ConfigFlags (status %!STATUS!)",
+                                                  m_HwKeyPath, status);
+    }
 }

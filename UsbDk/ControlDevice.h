@@ -193,7 +193,7 @@ public:
     bool MatchProcess(ULONG pid);
 
     NTSTATUS WaitForAttachment()
-    { return m_RedirectionCreated.Wait(true, -SecondsTo100Nanoseconds(120)); }
+    { return m_RedirectionCreated.Wait(true, -SecondsTo100Nanoseconds(15)); }
 
     bool WaitForDetachment();
 
@@ -223,6 +223,41 @@ private:
     bool m_RemovalInProgress = false;
 
     DECLARE_CWDMLIST_ENTRY(CUsbDkRedirection);
+};
+
+class CUsbDkFDriverRule : public CAllocatable < USBDK_NON_PAGED_POOL, 'FDRR' >
+{
+public:
+
+    CUsbDkFDriverRule(ULONG VidPid, ULONG PortHub, CString &KeyName)
+        : m_VidPid(VidPid)
+        , m_PortHub(PortHub)
+    {
+        m_KeyName.Swap(KeyName);
+    }
+
+    bool Match(const ULONG VidPid, const ULONG PortHub) const
+    {
+        return m_VidPid == VidPid && m_PortHub == PortHub;
+    }
+
+    bool operator ==(const CUsbDkFDriverRule &Other) const
+    {
+        return m_VidPid == Other.m_VidPid &&
+               m_PortHub == Other.m_PortHub;
+    }
+
+    void Dump(LONG traceLevel = m_defaultDumpLevel) const;
+
+    CString& KeyName() { return m_KeyName; }
+
+private:
+    ULONG   m_VidPid;
+    ULONG   m_PortHub;
+    CString m_KeyName;                /* HKLM/CCS/Enum/USB/VidPid/Location Registry key path */
+
+    static  LONG m_defaultDumpLevel;
+    DECLARE_CWDMLIST_ENTRY(CUsbDkFDriverRule);
 };
 
 class CDriverParamsRegistryPath final
@@ -301,6 +336,9 @@ public:
     bool ShouldHideDevice(CUsbDkChildDevice &Device) const;
     bool ShouldHide(const USB_DK_DEVICE_ID &DevId);
 
+    bool ShouldRawFiltDevice(CUsbDkChildDevice &Device, bool Is2ndCall);
+    bool ShouldRawFilt(const USB_DK_DEVICE_ID &DevId);
+
     template <typename TDevID>
     void NotifyRedirectionRemoved(const TDevID &Dev) const
     {
@@ -311,6 +349,8 @@ public:
     bool NotifyRedirectorAttached(CRegText *DeviceID, CRegText *InstanceID, CUsbDkFilterDevice *RedirectorDevice);
     bool NotifyRedirectorRemovalStarted(const USB_DK_DEVICE_ID &ID);
     bool WaitForDetachment(const USB_DK_DEVICE_ID &ID);
+
+    NTSTATUS ReloadHasDriverList();
 
 private:
     NTSTATUS ReloadPersistentHideRules();
@@ -335,6 +375,13 @@ private:
     HideRulesSet m_PersistentExtHideRules;
 
     NTSTATUS AddHideRuleToSet(const USB_DK_HIDE_RULE &UsbDkRule, HideRulesSet &Set);
+
+    /* DeviceID + LocationID list of "Function Driver" registry keys */
+    //typedef CWdmSet<CUsbDkFDriverRule, CLockedAccess, CNonCountingObject> FDriverRulesSet;
+    typedef CWdmSet<CUsbDkFDriverRule, CLockedAccess, CCountingObject> FDriverRulesSet;
+    FDriverRulesSet m_FDriversRules;
+    CString m_RootName;
+    bool m_FDriverInited = false;        /* Set after m_RootName created. */
 
     template <typename TPredicate, typename TFunctor>
     bool UsbDevicesForEachIf(TPredicate Predicate, TFunctor Functor)

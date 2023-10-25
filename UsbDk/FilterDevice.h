@@ -51,6 +51,7 @@ public:
 
     CUsbDkChildDevice(CRegText *DeviceID,
                       CRegText *InstanceID,
+                      CRegText *LocationID,
                       ULONG Port,
                       USB_DK_DEVICE_SPEED Speed,
                       USB_DEVICE_DESCRIPTOR &DevDescriptor,
@@ -59,6 +60,7 @@ public:
                       PDEVICE_OBJECT PDO)
         : m_DeviceID(DeviceID)
         , m_InstanceID(InstanceID)
+        , m_LocationID(LocationID)
         , m_Port(Port)
         , m_Speed(Speed)
         , m_DevDescriptor(DevDescriptor)
@@ -72,6 +74,7 @@ public:
     ULONG ParentID() const;
     PCWCHAR DeviceID() const { return *m_DeviceID->begin(); }
     PCWCHAR InstanceID() const { return *m_InstanceID->begin(); }
+    PCWCHAR LocationID() const { return *m_LocationID->begin(); }
     ULONG Port() const
     { return m_Port; }
     USB_DK_DEVICE_SPEED Speed() const
@@ -102,9 +105,17 @@ public:
 
     void Dump();
 
+    NTSTATUS SetRawDeviceToReinstall(CString &keypath)
+    {
+        m_SetReinstall = true;
+        return m_HwKeyPath.Create(keypath);
+    }
+    void MarkRawDeviceToReinstall();
+
 private:
     CObjHolder<CRegText> m_DeviceID;
     CObjHolder<CRegText> m_InstanceID;
+    CObjHolder<CRegText> m_LocationID;
     ULONG m_Port;
     USB_DK_DEVICE_SPEED m_Speed;
     USB_DEVICE_DESCRIPTOR m_DevDescriptor;
@@ -114,6 +125,9 @@ private:
     ULONG m_ClassMaskForExtHider;
     CUsbDkChildDevice(const CUsbDkChildDevice&) = delete;
     CUsbDkChildDevice& operator= (const CUsbDkChildDevice&) = delete;
+
+    bool m_SetReinstall = false;        /* Set CONFIGFLAG_REINSTALL on removal */
+    CString m_HwKeyPath;
 
     void DetermineDeviceClasses();
 
@@ -206,6 +220,7 @@ private:
         CUsbDkNullFilterStrategy m_NullStrategy;
         CUsbDkHubFilterStrategy m_HubStrategy;
         CUsbDkHiderStrategy m_HiderStrategy;
+        CUsbDkRawFilterStrategy m_RawFilterStrategy;
         CUsbDkRedirectorStrategy m_DevStrategy;
     } m_Strategy;
 

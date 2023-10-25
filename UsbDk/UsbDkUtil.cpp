@@ -143,6 +143,57 @@ size_t CStringBase::ToWSTR(PWCHAR Buffer, size_t SizeBytes) const
     return BytesToCopy + sizeof(Buffer[0]);
 }
 
+/* Truncate at the end of the pattern string. */
+/* Return true on success */
+bool CStringBase::TruncateAfter(PCWSTR patn)
+{
+    size_t off, len, plen;
+
+    const int bpwc = sizeof(WCHAR);
+    len = m_String.Length/bpwc;
+    plen = wcslen(patn);
+
+    if (plen == 0 || len < plen)
+        return false;
+
+    for (off = 0; len >= plen; off++, len--) {
+
+        /* Look for first char match */
+        if (patn[0] != m_String.Buffer[off])
+            continue;
+
+        /* See if the strings match */
+        if (memcmp(&m_String.Buffer[off], patn, bpwc * plen) == 0) {
+            m_String.Length = static_cast<USHORT>(bpwc * (off + plen));    /* Truncate */
+            return true;
+        }
+    }
+    return false;
+}
+
+/* Do a string match with possible character '?' wilcards in pattern */
+/* Return true on match */
+bool CStringBase::WCMatch(PCWSTR patn)
+{
+    size_t off, len, plen;
+
+    len = m_String.Length/sizeof(WCHAR);
+    plen = wcslen(patn);
+
+    if (len > 0 && m_String.Buffer[len-1] == L'\0')
+        len--;
+
+    if (len != plen)
+        return false;
+
+    for (off = 0; off < len; off++) {
+        if (patn[off] != m_String.Buffer[off]
+         && patn[off] != L'?')
+            return false;
+    }
+    return true;
+}
+
 PVOID DuplicateStaticBuffer(const void *Buffer, SIZE_T Length, POOL_TYPE PoolType)
 {
     ASSERT(Buffer != nullptr);
@@ -193,3 +244,64 @@ LONGLONG CStopWatch::Time100Ns() const
     KeQueryTickCount(&Now);
     return (Now.QuadPart - m_StartTime.QuadPart) * m_TimeIncrement;
 }
+
+/* Convert four Unicode Hex characters at an offset in a string, into an 16 bit value */
+static NTSTATUS FourHexToInteger(
+    PCUNICODE_STRING String,    /* String to read from */
+    USHORT             Off,        /* Character offset into string of 4 characters */
+    PULONG           Value        /* Output */
+) {
+    const int bpwc = sizeof(WCHAR);
+    UNICODE_STRING SubString;
+
+    SubString.Length = bpwc * 4;
+    SubString.MaximumLength = String->Length - bpwc * Off;
+    SubString.Buffer = String->Buffer + Off;
+
+    if (SubString.MaximumLength < 4)
+        return STATUS_INVALID_PARAMETER;
+
+    return RtlUnicodeStringToInteger(&SubString, 16, Value);
+}
+
+/* Convert 2x4 digit hex unicode characters into a 32 bit value */
+NTSTATUS EightHexToInteger(
+    PCUNICODE_STRING String,    /* String to read from */
+    USHORT             MsOff,        /* Char offset into string of MS characters */
+    USHORT             LsOff,        /* Char offset into string of LS characters */
+    PULONG           Value        /* Output */
+) {
+    NTSTATUS status;
+    ULONG tval1, tval2;
+
+    if ((status = FourHexToInteger(String, MsOff, &tval1)) != STATUS_SUCCESS)
+        return status;
+    if ((status = FourHexToInteger(String, LsOff, &tval2)) != STATUS_SUCCESS)
+        return status;
+
+    *Value = (tval1 << 16) + tval2;
+
+    return status;
+}
+
+/* Convert 2x4 digit hex unicode characters into a 32 bit value, Sz version. */
+NTSTATUS EightHexToInteger(
+    PCWCHAR          String,    /* String to read from */
+    USHORT             MsOff,        /* Char offset into string of MS characters */
+    USHORT             LsOff,        /* Char offset into string of LS characters */
+    PULONG           Value        /* Output */
+) {
+    const int bpwc = sizeof(WCHAR);
+    UNICODE_STRING UCString;
+    size_t slen = wcslen(String);
+
+    if (slen > (bpwc * ((1 << (sizeof(USHORT) * 8))-1)))
+        return STATUS_INVALID_PARAMETER;
+
+    UCString.Length = static_cast<USHORT>(bpwc * slen);
+    UCString.MaximumLength = UCString.Length;
+    UCString.Buffer = const_cast<PWCH>(String);        /* UCString becomes const, so safe. */
+
+    return EightHexToInteger(&UCString, MsOff, LsOff, Value);
+}
+
