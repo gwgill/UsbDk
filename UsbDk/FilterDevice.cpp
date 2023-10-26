@@ -271,6 +271,15 @@ NTSTATUS CUsbDkHubFilterStrategy::PNPPreProcess(PIRP Irp)
                                     });
     }
 
+#if 0	// From haidragon/hUsbDk
+	/* Remove all the hubs children if it is unplugged. */
+    if (irpStack->MinorFunction == IRP_MN_SURPRISE_REMOVAL)
+     || irpStack->MinorFunction == IRP_MN_REMOVE_DEVICE)
+    {
+		// Need to create DropAllDevices() method ?
+    }
+#endif
+
     return CUsbDkFilterStrategy::PNPPreProcess(Irp);
 }
 
@@ -607,8 +616,14 @@ bool CUsbDkFilterDevice::CStrategist::SelectStrategy(PDEVICE_OBJECT DevObj)
     if ((DevID->Match(L"USB\\ROOT_HUB")         ||
          DevID->Match(L"USB\\ROOT_HUB20")       ||
          DevID->Match(L"USB\\ROOT_HUB30")       ||
+         DevID->Match(L"USB\\USB20_HUB")        ||
+         DevID->Match(L"USB\\USB30_HUB")        ||
+         DevID->Match(L"USB\\ROOT_HUB30")       ||
          DevID->Match(L"NUSB3\\ROOT_HUB30")     ||
-         DevID->Match(L"IUSB3\\ROOT_HUB30")))
+         DevID->Match(L"IUSB3\\ROOT_HUB30")     ||
+         DevID->Match(L"IUSB3\\ROOT_HUB31")     ||
+         DevID->Match(L"AMDUSB3\\ROOT_HUB3")    ||
+         DevID->Match(L"AMDUSB3\\ROOT_HUB31")))
     {
         TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_FILTERDEVICE, "%!FUNC! Assigning HUB strategy");
         m_Strategy->Delete();
