@@ -62,7 +62,10 @@ public:
     CUsbDkControlDevice* GetControlDevice()
     { return m_ControlDevice; }
 
-    virtual void OnClose(){}
+    virtual void OnClose(ULONG pid){ pid; }
+
+    void SetMyDevPDO(PDEVICE_OBJECT PDO) { m_MyDevPDO = PDO; }
+    PDEVICE_OBJECT MyDevPDO() { return m_MyDevPDO; }
 
 protected:
     CUsbDkFilterDevice *m_Owner = nullptr;
@@ -104,9 +107,16 @@ protected:
         return Status;
     }
 
+    ~CUsbDkFilterStrategy()
+    {
+        if (m_MyDevPDO)
+            ObDereferenceObject(m_MyDevPDO);
+    }
+
 private:
     void ForwardRequest(WDFREQUEST Request);
     TChildrenList m_Children;
+    PDEVICE_OBJECT m_MyDevPDO = nullptr;        /* Hidder or Raw device child */
 };
 
 class CUsbDkNullFilterStrategy : public CUsbDkFilterStrategy
@@ -114,4 +124,6 @@ class CUsbDkNullFilterStrategy : public CUsbDkFilterStrategy
 public:
     virtual NTSTATUS MakeAvailable() override
     { return STATUS_SUCCESS; }
+    ~CUsbDkNullFilterStrategy() {};
+private:
 };

@@ -92,7 +92,8 @@ NTSTATUS CUsbDkFilterDeviceInit::Configure(ULONG InstanceNumber)
                           [](_In_ WDFFILEOBJECT FileObject)
                           {
                                 WDFDEVICE Device = WdfFileObjectGetDevice(FileObject);
-                                Strategy(Device)->OnClose();
+                                ULONG pid = (ULONG)(ULONG_PTR)PsGetCurrentProcessId();
+                                Strategy(Device)->OnClose(pid);
                           },
                           WDF_NO_EVENT_CALLBACK);
 
@@ -245,6 +246,22 @@ private:
 NTSTATUS CUsbDkHubFilterStrategy::PNPPreProcess(PIRP Irp)
 {
     auto irpStack = IoGetCurrentIrpStackLocation(Irp);
+    /*    GWG
+      IRP_MN_START_DEVICE                   0x1
+      IRP_MN_REMOVE_DEVICE                  0x2
+      IRP_MN_QUERY_DEVICE_RELATIONS         0x7
+      IRP_MN_QUERY_INTERFACE                0x8
+      IRP_MN_QUERY_CAPABILITIES             0x9
+      IRP_MN_QUERY_RESOURCES                0xa
+      IRP_MN_QUERY_RESOURCE_REQUIREMENTS    0xb
+      IRP_MN_QUERY_DEVICE_TEXT              0xc
+      IRP_MN_QUERY_ID                       0x13
+      IRP_MN_QUERY_PNP_DEVICE_STATE         0x14
+      IRP_MN_QUERY_BUS_INFORMATION          0x15
+      IRP_MN_SURPRISE_REMOVAL               0x17
+      IRP_MN_DEVICE_ENUMERATED              0x19
+     */
+    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_HIDER, "%!FUNC! Irp 0x%x, PDO 0x%p",irpStack->MinorFunction, irpStack->DeviceObject);
 
     if ((irpStack->MinorFunction == IRP_MN_QUERY_DEVICE_RELATIONS) &&
         (BusRelations == irpStack->Parameters.QueryDeviceRelations.Type))
@@ -271,14 +288,12 @@ NTSTATUS CUsbDkHubFilterStrategy::PNPPreProcess(PIRP Irp)
                                     });
     }
 
-#if 0	// From haidragon/hUsbDk
-	/* Remove all the hubs children if it is unplugged. */
-    if (irpStack->MinorFunction == IRP_MN_SURPRISE_REMOVAL)
-     || irpStack->MinorFunction == IRP_MN_REMOVE_DEVICE)
+    /* (From haidragon/hUsbDk) */
+    /* Remove all the hubs children if it is unplugged. */
+    if (irpStack->MinorFunction == IRP_MN_REMOVE_DEVICE)
     {
-		// Need to create DropAllDevices() method ?
+        DropAllDevices();
     }
-#endif
 
     return CUsbDkFilterStrategy::PNPPreProcess(Irp);
 }
@@ -298,7 +313,31 @@ void CUsbDkHubFilterStrategy::DropRemovedDevices(const CDeviceRelations &Relatio
                                  });
     ToBeDeleted.ForEach([this](CUsbDkChildDevice *Device) -> bool
                         {
-                            Device->MarkRawDeviceToReinstall();
+                            /* If the device is ReallyRaw, make it re-install on next plug */
+                            if (Device->IfReallyRaw())
+                                Device->MarkRawDeviceToReinstall();
+                            m_ControlDevice->NotifyRedirectionRemoved(*Device);
+                            return true;
+                        });
+}
+
+void CUsbDkHubFilterStrategy::DropAllDevices()
+{
+    //Child device must be deleted on PASSIVE_LEVEL
+    //So we put those to non-locked list and let its destructor do the job
+    CWdmList<CUsbDkChildDevice, CRawAccess, CNonCountingObject> ToBeDeleted;
+    Children().ForEachDetached([&ToBeDeleted](CUsbDkChildDevice *Child) -> bool
+                               {
+                                   TraceEvents(TRACE_LEVEL_ERROR, TRACE_FILTERDEVICE, "%!FUNC! Deleting child object:");
+                                   Child->Dump();
+                                   ToBeDeleted.PushBack(Child);
+                                   return true;
+                               });
+    ToBeDeleted.ForEach([this](CUsbDkChildDevice *Device) -> bool
+                        {
+                            /* If the device is ReallyRaw, make it re-install on next plug */
+                            if (Device->IfReallyRaw())
+                                Device->MarkRawDeviceToReinstall();
                             m_ControlDevice->NotifyRedirectionRemoved(*Device);
                             return true;
                         });
@@ -335,7 +374,6 @@ void CUsbDkHubFilterStrategy::RegisterNewChild(PDEVICE_OBJECT PDO)
     // device. Sending USB requests to it may be problematic as sending URB
     // is just internal device control with trivial IOCTL code.
     // Before trying to initialize it as USB device we check it is really one.
-
     CObjHolder<CRegText> DevID;
     CObjHolder<CRegText> InstanceID;
     CObjHolder<CRegText> LocationID;
@@ -415,6 +453,8 @@ void CUsbDkHubFilterStrategy::RegisterNewChild(PDEVICE_OBJECT PDO)
     InstanceID.detach();
     LocationID.detach();
 
+    TraceEvents(TRACE_LEVEL_ERROR, TRACE_FILTERDEVICE,
+        "%!FUNC! Adding child 0x%p PDO 0x%p", Device, PDO);
     Children().PushBack(Device);
 
     ApplyRedirectionPolicy(*Device);
@@ -523,7 +563,7 @@ NTSTATUS CUsbDkFilterDevice::AttachToStack(WDFDRIVER Driver)
         return status;
     }
 
-    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_FILTERDEVICE, "%!FUNC! Attached");
+    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_FILTERDEVICE, "%!FUNC! Attached, PDO 0x%p",WdmObject());
     return STATUS_SUCCESS;
 }
 
@@ -548,6 +588,19 @@ NTSTATUS CUsbDkFilterDevice::DefineStrategy()
     {
         TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_FILTERDEVICE, "%!FUNC! Failed to create strategy");
         return status;
+    }
+
+    /* Tell the Hidden or Raw filter strategy what its child device PDO is */
+    PDEVICE_OBJECT dpdo = IoGetLowerDeviceObject(WdmObject());
+    while (dpdo != nullptr) {
+        PDEVICE_OBJECT ndpdo = IoGetLowerDeviceObject(dpdo);
+        if (ndpdo == nullptr)
+        {
+            m_Strategy->SetMyDevPDO(dpdo);    /* (Keeps reference until destructed) */
+            break;
+        }
+        ObDereferenceObject(dpdo);
+        dpdo = ndpdo;
     }
 
     return STATUS_SUCCESS;
@@ -601,6 +654,8 @@ void CUsbDkFilterDevice::ContextCleanup(_In_ WDFOBJECT DeviceObject)
 bool CUsbDkFilterDevice::CStrategist::SelectStrategy(PDEVICE_OBJECT DevObj)
 {
     PAGED_CODE();
+
+    TraceEvents(TRACE_LEVEL_ERROR, TRACE_FILTERDEVICE, "%!FUNC! for PDO 0x%p",DevObj);
 
     // Get device ID
     CObjHolder<CRegText> DevID;
@@ -661,6 +716,15 @@ bool CUsbDkFilterDevice::CStrategist::SelectStrategy(PDEVICE_OBJECT DevObj)
         // we are dealing with USB hub and WDF attached us to its stack
         // automatically because UsbDk is registered in PNP manager as
         // USB hubs filter
+
+        /* OR we failed to query the device descriptor, and really shouldn't treat it as a HUB! */
+        /* (Failure to query the device descriptor appears to return VID_0000&PID_0002) */
+        if (DevID->Match(L"USB\\VID_0000&PID_0002"))
+        {
+            TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_FILTERDEVICE, "%!FUNC! No cached device descriptor, and bad VID/PI, No strategy assigned");
+            return false;
+        }
+
         TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_FILTERDEVICE, "%!FUNC! No cached device descriptor, assigning hub strategy");
         m_Strategy->Delete();
         m_Strategy = &m_HubStrategy;
@@ -830,16 +894,60 @@ void CUsbDkChildDevice::DetermineDeviceClasses()
     TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_FILTERDEVICE, "Class mask %08X", m_ClassMaskForExtHider);
 }
 
+/* We can call this once the Raw Filtered device is real to see if our */
+/* guess as to whether the device has a function driver is corrrect. */
+bool CUsbDkChildDevice::IfReallyRaw() {
+    TraceEvents(TRACE_LEVEL_ERROR, TRACE_FILTERDEVICE, "%!FUNC! m_IsProbablyRaw %d, m_HaveCheckedIfReallyRaw %d",m_IsProbablyRaw,m_HaveCheckedIfReallyRaw);
+
+    /* We only have to make this check once */
+    if (!m_IsProbablyRaw || m_HaveCheckedIfReallyRaw)
+    {
+        m_HaveCheckedIfReallyRaw = true;
+
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_FILTERDEVICE, "%!FUNC! returning %d",m_IsReallyRaw);
+        return m_IsReallyRaw;
+    }
+
+    m_HaveCheckedIfReallyRaw = true;
+
+    CRegKey regkey;
+       
+    auto status = regkey.Open(*m_HwKeyPath);
+    if (!NT_SUCCESS(status))
+    {
+        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_CONTROLDEVICE,
+            "%!FUNC! Failed to open Key '%wZ' registry key",m_HwKeyPath);
+        return m_IsReallyRaw;        /* Hmm. */
+    }
+    CStringHolder DriverNameHolder;
+    status = DriverNameHolder.Attach(TEXT("Driver"));
+    ASSERT(NT_SUCCESS(status));
+    
+    CWdmMemoryBuffer Buffer;
+    status = regkey.QueryValueInfo(*DriverNameHolder, KeyValuePartialInformation, Buffer);
+    if (!NT_SUCCESS(status))
+    {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE, 
+            "%!FUNC! Failed to read value '%wZ\\Driver' (status %!STATUS!)",
+                                                   m_HwKeyPath, status);
+        m_IsReallyRaw = true;
+    } else {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE, 
+            "%!FUNC! As able to read value '%wZ\\Driver'", m_HwKeyPath);
+        m_IsReallyRaw = false;
+    }
+
+    TraceEvents(TRACE_LEVEL_ERROR, TRACE_FILTERDEVICE, "%!FUNC! returning %d",m_IsReallyRaw);
+    return m_IsReallyRaw;
+}
+
 #ifndef CONFIGFLAG_REINSTALL        /* This is in um/RegStr.h */
 # define CONFIGFLAG_REINSTALL            0x00000020      // Redo install
 #endif
 
 void CUsbDkChildDevice::MarkRawDeviceToReinstall()
 {
-    if (!m_SetReinstall)
-        return;
-
-    TraceEvents(TRACE_LEVEL_ERROR, TRACE_FILTERDEVICE, "%!FUNC! Found m_SetReinstall flag "
+    TraceEvents(TRACE_LEVEL_ERROR, TRACE_FILTERDEVICE, "%!FUNC! setting reinstall flag "
                                                          "on Child PDO 0x%p",PDO());
     CRegKey regkey;
        
@@ -883,3 +991,4 @@ void CUsbDkChildDevice::MarkRawDeviceToReinstall()
                                                   m_HwKeyPath, status);
     }
 }
+

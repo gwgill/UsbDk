@@ -379,10 +379,11 @@ bool CUsbDkControlDevice::ShouldHide(const USB_DK_DEVICE_ID &DevId)
 /* is a driver that will get installed, or IoOpenDeviceRegistryKey(Device) to look for a Device */
 /* value to see if the Device has a Driver assigned, but unfortunately nothing like this */
 /* is possible within the IRP_MN_QUERY_DEVICE_RELATIONS because the PDO isn't actually valid */
-/* for doing much at that point in time. Instead we create and maintain a list built */
-/* outside the IRP that has the associated registry key path in it for a VidPid/PortHub. This */
-/* isn't a perfect solution, since the registry state will lag when a device is plugged in for */
-/* the first time. The error is usually benign, and will be corrected */
+/* for doing very much at that point in time. Instead we create and maintain a list built */
+/* outside the MN_QUERY_IRP that has the associated registry key path in it for a VidPid + PortHub. */
+/* This isn't a perfect solution, since the registry state will lag when a device is plugged in */
+/* for the first time. The error should be benign, as we double check for a driver before */
+/* doing anything that assumes this is a RawFiltered device, and the error will be corrected */
 /* the second time the device is plugged in. */
 bool CUsbDkControlDevice::ShouldRawFiltDevice(CUsbDkChildDevice &Device, bool Is2ndCall)
 {
@@ -489,9 +490,10 @@ bool CUsbDkControlDevice::ShouldRawFiltDevice(CUsbDkChildDevice &Device, bool Is
         /* case GetCount() will be 0), or this is the first time the device has been plugged */
         /* in to the port, in which case we don't have a way of knowing if it has a driver. */
         /* We default to adding a Raw Filter so that the common case of plugging in a device */
-        /* with no driver works with UsbDk, and take the (hopefully small) risk that this */
-        /* won't disturb any device that has a driver. In the unlikely event this happens, */
-        /* then re-plugging the device or redirecting via UsbDk should fix it. */
+        /* with no driver works with UsbDk, and take the risk that this won't disturb any */
+        /* device that has a driver, since we double check before actually intercepting any */
+        /* IRPs to the device. In the unlikely event this is a problem, then re-plugging the */
+        /* device or redirecting via UsbDk should fix it. */
         if (m_FDriversRules.GetCount() > 0 && !hasentry)
         {
             hasfdriv = false;
@@ -505,8 +507,8 @@ bool CUsbDkControlDevice::ShouldRawFiltDevice(CUsbDkChildDevice &Device, bool Is
     /* plugged in, then an Enum/USB entry will have been created for it, and PnP will ignore */
     /* the new Function Driver and assume that the device will continue to be driven in Raw mode. */
     /* This will create difficulty for the user, who then has to uninstall the device manually */
-    /* using Device Manager to make it work with its Function Driver as well as UsbDk. We can */
-    /* avoid this problem if we set the CONFIGFLAG_REINSTALL in the Enum/USB ConfigFlags, so */
+    /* using Device Manager to make it work with its new Function Driver as well as UsbDk. We can */
+    /* avoid this problem if we set CONFIGFLAG_REINSTALL in the Enum/USB ConfigFlags, so */
     /* that PnP checks for a Function Driver on a Raw device each time it is plugged in. */
     if (Is2ndCall && Entry != nullptr && hasentry && !hasfdriv)
     {
@@ -615,21 +617,85 @@ PDEVICE_OBJECT CUsbDkControlDevice::GetPDOByDeviceID(const USB_DK_DEVICE_ID &Dev
     return PDO;
 }
 
-NTSTATUS CUsbDkControlDevice::ResetUsbDevice(const USB_DK_DEVICE_ID &DeviceID, bool ForceD0)
+CUsbDkChildDevice *CUsbDkControlDevice::GetChildByDeviceID(const USB_DK_DEVICE_ID &DeviceID)
 {
-    PDEVICE_OBJECT PDO = GetPDOByDeviceID(DeviceID);
-    if (PDO == nullptr)
+    CUsbDkChildDevice *child = nullptr;
+
+    EnumUsbDevicesByID(DeviceID,
+                       [&child](CUsbDkChildDevice *Child) -> bool
+                       {
+                           child = Child;
+                           return false;
+                       });
+
+    if (child == nullptr)
+    {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE, "%!FUNC! Child was not found");
+    }
+
+    return child;
+}
+
+// EnumUsbDevicesByPDO runs over the list of USB devices looking for device by PDO.
+// For each device with matching PDO Functor() is called.
+// If Functor() returns false EnumUsbDevicesByPDO() interrupts the loop and exits immediately.
+//
+// Return values:
+//     - false: the loop was interrupted,
+//     - true: the loop went over all devices registered
+
+template <typename TFunctor>
+bool CUsbDkControlDevice::EnumUsbDevicesByPDO(const PDEVICE_OBJECT PDO, TFunctor Functor)
+{
+    return UsbDevicesForEachIf([PDO](CUsbDkChildDevice *c) { return c->PDO() == PDO; }, Functor);
+}
+
+CUsbDkChildDevice *CUsbDkControlDevice::GetChildByPDO(const PDEVICE_OBJECT PDO)
+{
+    CUsbDkChildDevice *child = nullptr;
+
+    EnumUsbDevicesByPDO(PDO,
+                       [&child](CUsbDkChildDevice *Child) -> bool
+                       {
+                           child = Child;
+                           return false;
+                       });
+
+    if (child == nullptr)
+    {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE, "%!FUNC! Child was not found");
+    }
+
+    return child;
+}
+
+NTSTATUS CUsbDkControlDevice::ResetUsbDevice(const USB_DK_DEVICE_ID &DeviceID)
+{
+    CUsbDkChildDevice *Child = GetChildByDeviceID(DeviceID);
+    if (Child == nullptr)
     {
         return STATUS_NO_SUCH_DEVICE;
     }
 
+    PDEVICE_OBJECT PDO = Child->PDO();
+    ObReferenceObject(PDO);
     CWdmUsbDeviceAccess pdoAccess(PDO);
-    auto status = pdoAccess.Reset(ForceD0);
+
+    /* Some devices on some hubs won't reliably CYCLE unless they are */
+    /* configured and then reset... */
+    if (Child->IfReallyRaw() && Child->GetRawConfiguration() != 1) {
+        SetUsbConfiguration(Child, 1);
+        pdoAccess.Reset();
+    }
+
+    auto status = pdoAccess.Cycle();
+
     ObDereferenceObject(PDO);
 
     return status;
 }
 
+/* Get CONFIGURATION_DESCRIPTOR from cache */
 NTSTATUS CUsbDkControlDevice::GetUsbDeviceConfigurationDescriptor(const USB_DK_DEVICE_ID &DeviceID,
                                                                   UCHAR DescriptorIndex,
                                                                   USB_CONFIGURATION_DESCRIPTOR &Descriptor,
@@ -647,6 +713,215 @@ NTSTATUS CUsbDkControlDevice::GetUsbDeviceConfigurationDescriptor(const USB_DK_D
     }
 
     return result ? STATUS_SUCCESS : STATUS_INVALID_DEVICE_REQUEST;
+}
+
+/* Search Config Descriptor for a given interface */
+USB_INTERFACE_DESCRIPTOR *
+FindInterfaceDesc(USB_CONFIGURATION_DESCRIPTOR *config_desc,
+                    unsigned int size, int interface_number, int altsetting)
+{
+    USB_COMMON_DESCRIPTOR *desc = (USB_COMMON_DESCRIPTOR *)config_desc;
+    char *p = (char *)desc;
+    USB_INTERFACE_DESCRIPTOR *if_desc = NULL;
+
+    if (!config_desc || (size < config_desc->wTotalLength))
+    {
+        return NULL;
+    }
+
+    while (size != 0 && size >= desc->bLength)
+    {
+        if (desc->bDescriptorType == USB_INTERFACE_DESCRIPTOR_TYPE)
+        {
+            if_desc = (USB_INTERFACE_DESCRIPTOR *)desc;
+
+            if ((if_desc->bInterfaceNumber == (UCHAR)interface_number)
+                    && (if_desc->bAlternateSetting == (UCHAR)altsetting))
+            {
+                return if_desc;
+            }
+        }
+        size -= desc->bLength;
+        p    += desc->bLength;
+        desc = (USB_COMMON_DESCRIPTOR *)p;
+    }
+    return NULL;
+}
+
+NTSTATUS CUsbDkControlDevice::SetUsbConfiguration(CUsbDkChildDevice *Child, UCHAR configuration)
+{
+    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_CONTROLDEVICE,
+        "%!FUNC! about to set configuration %d", configuration);
+
+    PDEVICE_OBJECT PDO = Child->PDO();
+
+    NTSTATUS status = STATUS_SUCCESS;
+    URB urb, *urb_ptr = NULL;
+    USB_CONFIGURATION_DESCRIPTOR Descriptor = {}, *desc_ptr = NULL;
+    USB_INTERFACE_DESCRIPTOR *interface_descriptor = NULL;
+    USBD_INTERFACE_LIST_ENTRY *interfaces = NULL;
+    int i, j, interface_number, desc_size;
+
+    memset(&urb, 0, sizeof(URB));
+
+    /* Unset the configuration */
+    if (configuration == 0)
+    {
+        urb.UrbHeader.Function = URB_FUNCTION_SELECT_CONFIGURATION;
+        urb.UrbHeader.Length = sizeof(struct _URB_SELECT_CONFIGURATION);
+
+        status = UsbDkSendUrbSynchronously(PDO, urb);
+
+        if (!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
+        {
+            TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_CONTROLDEVICE,
+                "%!FUNC! setting configuration %d failed: status: %!STATUS!, urb-status: %!STATUS!",
+                        configuration, status, urb.UrbHeader.Status);
+            return status;
+        }
+        Child->SetRawConfiguration(configuration);
+        return status;
+    }
+
+    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_CONTROLDEVICE,
+        "%!FUNC! about to get configuration %d", configuration);
+
+    /* Initial get configuration to discover total length */
+    status = Child->ConfigurationDescriptor(configuration-1, Descriptor, sizeof(Descriptor));
+
+    if (!NT_SUCCESS(status)) {
+        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_CONTROLDEVICE,
+        "%!FUNC! getting configuration descriptor failed with %!STATUS!", status);
+        goto SetConfigurationDone;
+    }
+
+    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_CONTROLDEVICE,
+        "%!FUNC! got configuration descriptor type 0x%x, len %d, total length %d",
+         Descriptor.bDescriptorType, Descriptor.bLength, Descriptor.wTotalLength);
+
+    if (Descriptor.bDescriptorType != USB_CONFIGURATION_DESCRIPTOR_TYPE)
+    {
+        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_CONTROLDEVICE,
+        "%!FUNC! configuration is unexpected type");
+        status = STATUS_INVALID_PARAMETER;
+        goto SetConfigurationDone;
+    }
+
+    desc_size = Descriptor.wTotalLength;
+    desc_ptr = static_cast<USB_CONFIGURATION_DESCRIPTOR *>(ExAllocatePool(USBDK_NON_PAGED_POOL,
+        desc_size));
+
+    /* Get whole configuration */
+    status = Child->ConfigurationDescriptor(configuration-1, *desc_ptr, desc_size);
+
+    if (!NT_SUCCESS(status)) {
+        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_CONTROLDEVICE,
+        "%!FUNC! getting whole configuration descriptor failed with %!STATUS!", status);
+        goto SetConfigurationDone;
+    }
+    desc_size = Descriptor.wTotalLength;
+
+    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_CONTROLDEVICE,
+        "%!FUNC! got whole configuration descriptor length %d, numInterfaces %d",
+         desc_size, Descriptor.bNumInterfaces);
+
+    interfaces = static_cast<USBD_INTERFACE_LIST_ENTRY *>(ExAllocatePool(USBDK_NON_PAGED_POOL,
+        (Descriptor.bNumInterfaces + 1) * sizeof(USBD_INTERFACE_LIST_ENTRY)));
+
+    if (interfaces == nullptr) {
+        status = STATUS_NO_MEMORY;
+        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_CONTROLDEVICE,
+            "%!FUNC! interfaces memory allocation failed");
+        goto SetConfigurationDone;
+    }
+
+    memset(interfaces, 0, (Descriptor.bNumInterfaces + 1) * sizeof(USBD_INTERFACE_LIST_ENTRY));
+
+    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_CONTROLDEVICE,
+        "%!FUNC! parsing %d interfaces", Descriptor.bNumInterfaces);
+
+    interface_number = 0;
+    for (i = 0; i < Descriptor.bNumInterfaces; i++)
+    {
+        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_CONTROLDEVICE,
+            "%!FUNC! doing if ix %d, starting at interface %d", i, interface_number);
+
+        for (j = interface_number; j < 32; j++)
+        {
+            interface_descriptor =
+                FindInterfaceDesc(desc_ptr, desc_size, j, 0);
+            if (interface_descriptor)
+            {
+                interface_number = ++j;
+                break;
+            }
+        }
+
+        if (!interface_descriptor)
+        {
+            status = STATUS_INVALID_PARAMETER;
+            TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_CONTROLDEVICE,
+                "%!FUNC! unable to find interface descriptor %d for index %d", j, i);
+            goto SetConfigurationDone;
+        }
+        else
+        {
+            TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_CONTROLDEVICE,
+                "%!FUNC! found interface %d\n", interface_descriptor->bInterfaceNumber);
+            interfaces[i].InterfaceDescriptor = interface_descriptor;
+        }
+    }
+
+    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_CONTROLDEVICE,
+        "%!FUNC! building set configuration request");
+
+    urb_ptr = USBD_CreateConfigurationRequestEx(desc_ptr, interfaces);
+    if (!urb_ptr)
+    {
+        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_CONTROLDEVICE,
+          "%!FUNC! memory allocation failed");
+        status = STATUS_NO_MEMORY;
+        goto SetConfigurationDone;
+    }
+
+    for (i = 0; i < Descriptor.bNumInterfaces; i++)
+    {
+        for (j = 0; j < (int)interfaces[i].Interface->NumberOfPipes; j++)
+        {
+            interfaces[i].Interface->Pipes[j].MaximumTransferSize = 0x10000;
+        }
+    }
+
+    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_CONTROLDEVICE,
+           "%!FUNC! sending configuration request");
+
+    status = UsbDkSendUrbSynchronously(PDO, *urb_ptr);
+
+    if (!NT_SUCCESS(status) || !USBD_SUCCESS(urb.UrbHeader.Status))
+    {
+        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_CONTROLDEVICE,
+            "%!FUNC! setting configuration %d failed: status: %!STATUS!, urb-status: %!STATUS!",
+                        configuration, status, urb.UrbHeader.Status);
+        if (NT_SUCCESS(status)) status = urb.UrbHeader.Status;
+        goto SetConfigurationDone;
+    }
+
+    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_CONTROLDEVICE,
+           "%!FUNC! configuration request sucess");
+
+    Child->SetRawConfiguration(configuration);
+
+SetConfigurationDone:
+    if (desc_ptr)
+        ExFreePool(desc_ptr);
+
+    if (interfaces)
+        ExFreePool(interfaces);
+
+    if (urb_ptr)
+        ExFreePool(urb_ptr);
+
+    return status;
 }
 
 void CUsbDkControlDevice::ContextCleanup(_In_ WDFOBJECT DeviceObject)
@@ -871,7 +1146,7 @@ void CUsbDkControlDevice::AddRedirectRollBack(const USB_DK_DEVICE_ID &DeviceId, 
         return;
     }
 
-    auto resetRes = ResetUsbDevice(DeviceId, false);
+    auto resetRes = ResetUsbDevice(DeviceId);
     if (!NT_SUCCESS(resetRes))
     {
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE, "%!FUNC! Roll-back reset failed. %!STATUS!", resetRes);
@@ -901,7 +1176,7 @@ NTSTATUS CUsbDkControlDevice::AddRedirect(const USB_DK_DEVICE_ID &DeviceId, HAND
     TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_CONTROLDEVICE, "%!FUNC! Success. New redirections list:");
     m_Redirections.Dump();
 
-    auto resetRes = ResetUsbDevice(DeviceId, true);
+    auto resetRes = ResetUsbDevice(DeviceId);
     if (!NT_SUCCESS(resetRes))
     {
         TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE, "%!FUNC! Reset after start redirection failed. %!STATUS!", resetRes);
@@ -1189,11 +1464,11 @@ NTSTATUS CUsbDkControlDevice::AddRedirectionToSet(const USB_DK_DEVICE_ID &Device
     return STATUS_SUCCESS;
 }
 
-NTSTATUS CUsbDkControlDevice::RemoveRedirect(const USB_DK_DEVICE_ID &DeviceId)
+NTSTATUS CUsbDkControlDevice::RemoveRedirect(const USB_DK_DEVICE_ID &DeviceId, ULONG pid)
 {
-    if (NotifyRedirectorRemovalStarted(DeviceId))
+    if (NotifyRedirectorRemovalStarted(DeviceId, pid))
     {
-        auto res = ResetUsbDevice(DeviceId, false);
+        auto res = ResetUsbDevice(DeviceId);
         if (NT_SUCCESS(res))
         {
             TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_CONTROLDEVICE,
@@ -1243,9 +1518,8 @@ bool CUsbDkControlDevice::NotifyRedirectorAttached(CRegText *DeviceID, CRegText 
     return m_Redirections.ModifyOne(&ID, [RedirectorDevice](CUsbDkRedirection *R){ R->NotifyRedirectorCreated(RedirectorDevice); });
 }
 
-bool CUsbDkControlDevice::NotifyRedirectorRemovalStarted(const USB_DK_DEVICE_ID &ID)
+bool CUsbDkControlDevice::NotifyRedirectorRemovalStarted(const USB_DK_DEVICE_ID &ID, ULONG pid)
 {
-    ULONG pid = (ULONG)(ULONG_PTR)PsGetCurrentProcessId();
     return m_Redirections.ModifyOne(&ID, [](CUsbDkRedirection *R){ R->NotifyRedirectionRemovalStarted(); }, pid);
 }
 
@@ -1646,7 +1920,7 @@ NTSTATUS CUsbDkControlDevice::ReloadHasDriverList()
             TraceEvents(TRACE_LEVEL_ERROR, TRACE_CONTROLDEVICE, 
                 "%!FUNC! Function Driver Ident = 0x%08x 0x%08x'",VidPid, PortHub);
 
-            /* (Note KeyName will be empty after the constructor due to swap.) */
+            /* (Note KeyName will be empty after the constructor.) */
             CObjHolder<CUsbDkFDriverRule> NewRule(new CUsbDkFDriverRule(VidPid, PortHub, KeyName));
             if (!NewRule)
             {

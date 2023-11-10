@@ -221,25 +221,6 @@ bool CWdmDeviceAccess::QueryPowerData(CM_POWER_DATA& powerData)
 #endif
 }
 
-#if 0
-static void PowerRequestCompletion(
-    _In_ PDEVICE_OBJECT DeviceObject,
-    _In_ UCHAR MinorFunction,
-    _In_ POWER_STATE PowerState,
-    _In_opt_ PVOID Context,
-    _In_ PIO_STATUS_BLOCK IoStatus
-)
-{
-    UNREFERENCED_PARAMETER(DeviceObject);
-    UNREFERENCED_PARAMETER(MinorFunction);
-    UNREFERENCED_PARAMETER(PowerState);
-    UNREFERENCED_PARAMETER(IoStatus);
-    CWdmEvent *pev = (CWdmEvent *)Context;
-    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVACCESS, "%!FUNC! -> D%d", PowerState.DeviceState - 1);
-    pev->Set();
-}
-#endif
-
 PWCHAR CWdmDeviceAccess::MakeNonPagedDuplicate(BUS_QUERY_ID_TYPE idType, PWCHAR idData)
 {
     auto bufferLength = GetIdBufferLength(idType, idData);
@@ -305,44 +286,46 @@ NTSTATUS CWdmDeviceAccess::QueryForInterface(const GUID &guid, __out INTERFACE &
     return status;
 }
 
-NTSTATUS CWdmUsbDeviceAccess::Reset(bool ForceD0)
+NTSTATUS CWdmUsbDeviceAccess::Reset()
 {
+    TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVACCESS, "%!FUNC! About to send IOCTL_INTERNAL_USB_RESET_PORT to PDO 0x%p",m_DevObj);
+
     CIoControlIrp Irp;
-#if 0 // #115 reports that this can cause a WDF_VIOLATION (10d) error code with some devices.
-    CM_POWER_DATA powerData;
-    if (ForceD0 && QueryPowerData(powerData) && powerData.PD_MostRecentPowerState != PowerDeviceD0)
-    {
-        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVACCESS, "%!FUNC! device power state D%d", powerData.PD_MostRecentPowerState - 1);
-        POWER_STATE PowerState;
-        CWdmEvent Event;
-        PowerState.DeviceState = PowerDeviceD0;
-        auto status = PoRequestPowerIrp(m_DevObj, IRP_MN_SET_POWER, PowerState, PowerRequestCompletion, &Event, NULL);
-        if (NT_SUCCESS(status))
-        {
-            Event.Wait();
-        }
-    }
-#else
-	ForceD0;
-#endif
-
-    TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVACCESS, "%!FUNC! About to sed IOCTL_INTERNAL_USB_CYCLE_PORT");
-
-    auto status = Irp.Create(m_DevObj, IOCTL_INTERNAL_USB_CYCLE_PORT);
-
+    auto status = Irp.Create(m_DevObj, IOCTL_INTERNAL_USB_RESET_PORT);
     if (!NT_SUCCESS(status))
     {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVACCESS, "%!FUNC! Error %!STATUS! during IOCTL IRP creation", status);
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVACCESS, "%!FUNC! Creation IOCTL_INTERNAL_USB_RESET_PORT %!STATUS! n", status);
         return status;
     }
 
     status = Irp.SendSynchronously();
-
     if (!NT_SUCCESS(status))
     {
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVACCESS, "%!FUNC! Send IOCTL IRP Error %!STATUS!", status);
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVACCESS, "%!FUNC! Execute PORT %!STATUS!", status);
     }
 
+    return status;
+}
+
+NTSTATUS CWdmUsbDeviceAccess::Cycle()
+{
+    /* (Attempting a IRP_MN_SET_POWER can cause a WDF_VIOLATION if we're not the Power Manager.) */
+
+    TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVACCESS, "%!FUNC! About to send IOCTL_INTERNAL_USB_CYCLE_PORT to PDO 0x%p",m_DevObj);
+
+    CIoControlIrp Irp;
+    auto status = Irp.Create(m_DevObj, IOCTL_INTERNAL_USB_CYCLE_PORT);
+    if (!NT_SUCCESS(status))
+    {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVACCESS, "%!FUNC! Create IOCTL_INTERNAL_USB_CYCLE_PORT %!STATUS!", status);
+        return status;
+    }
+
+    status = Irp.SendSynchronously();
+    if (!NT_SUCCESS(status))
+    {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVACCESS, "%!FUNC! Execute IOCTL_INTERNAL_USB_CYCLE_PORT %!STATUS!", status);
+    }
     return status;
 }
 

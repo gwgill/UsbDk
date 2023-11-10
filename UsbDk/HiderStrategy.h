@@ -37,6 +37,8 @@ public:
         return STATUS_SUCCESS;
     }
 
+    ~CUsbDkHiderStrategy() {};
+
 private:
     void PatchDeviceID(PIRP Irp);
     NTSTATUS PatchDeviceText(PIRP Irp);
@@ -57,7 +59,12 @@ public:
         return STATUS_SUCCESS;
     }
 
+    ~CUsbDkRawFilterStrategy() {};
+
 private:
     void PatchDeviceID(PIRP Irp);
     NTSTATUS PatchDeviceText(PIRP Irp);
+
+    bool m_DoNOP = false;       /* Cache the result of checking if a device is really raw */
+    bool m_IsRaw = false;
 };

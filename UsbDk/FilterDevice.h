@@ -107,10 +107,14 @@ public:
 
     NTSTATUS SetRawDeviceToReinstall(CString &keypath)
     {
-        m_SetReinstall = true;
+        m_IsProbablyRaw = true;
         return m_HwKeyPath.Create(keypath);
     }
+    bool IfReallyRaw();
     void MarkRawDeviceToReinstall();
+
+    void SetRawConfiguration(UCHAR configuration) { m_RawConfiguration = configuration; }
+    UCHAR GetRawConfiguration() { return m_RawConfiguration; }
 
 private:
     CObjHolder<CRegText> m_DeviceID;
@@ -126,7 +130,12 @@ private:
     CUsbDkChildDevice(const CUsbDkChildDevice&) = delete;
     CUsbDkChildDevice& operator= (const CUsbDkChildDevice&) = delete;
 
-    bool m_SetReinstall = false;        /* Set CONFIGFLAG_REINSTALL on removal */
+    /* If this is probably a Raw device with no function driver, */
+    /* m_IsProbRaw will be set true. */
+    bool m_IsProbablyRaw = false;
+    bool m_HaveCheckedIfReallyRaw = false;
+    bool m_IsReallyRaw = false;
+    UCHAR m_RawConfiguration = 0;      /* We're only setting configuration on devices marked raw */
     CString m_HwKeyPath;
 
     void DetermineDeviceClasses();
@@ -145,9 +154,11 @@ public:
     virtual NTSTATUS MakeAvailable() override
     { return STATUS_SUCCESS; }
     virtual NTSTATUS PNPPreProcess(PIRP Irp) override;
+    ~CUsbDkHubFilterStrategy() {};
 
 private:
     void DropRemovedDevices(const CDeviceRelations &Relations);
+    void DropAllDevices();
     void AddNewDevices(const CDeviceRelations &Relations);
     void RegisterNewChild(PDEVICE_OBJECT PDO);
     void ApplyRedirectionPolicy(CUsbDkChildDevice &Device);
@@ -215,6 +226,8 @@ private:
         CUsbDkFilterStrategy *operator ->() const { return m_Strategy; }
         static size_t GetRequestContextSize();
         operator bool() const { return m_Strategy != nullptr; }
+        CStrategist() {};
+        ~CStrategist() {};
     private:
         CUsbDkFilterStrategy *m_Strategy = nullptr;
         CUsbDkNullFilterStrategy m_NullStrategy;

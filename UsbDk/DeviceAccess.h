@@ -74,7 +74,8 @@ public:
         : CWdmDeviceAccess(WdmDevice)
     { }
 
-    NTSTATUS Reset(bool ForceD0);
+    NTSTATUS Reset();
+    NTSTATUS Cycle();
     NTSTATUS GetDeviceDescriptor(USB_DEVICE_DESCRIPTOR &Descriptor);
     NTSTATUS GetConfigurationDescriptor(UCHAR Index, USB_CONFIGURATION_DESCRIPTOR &Descriptor, size_t Length);
 

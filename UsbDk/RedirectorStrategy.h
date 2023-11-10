@@ -75,7 +75,7 @@ public:
                                        size_t InputBufferLength,
                                        ULONG IoControlCode) override;
 
-    virtual void OnClose() override;
+    virtual void OnClose(ULONG pid) override;
 
     void SetDeviceID(CRegText *DevID)
     { m_DeviceID = DevID; }
@@ -84,6 +84,8 @@ public:
     { m_InstanceID = InstID; }
 
     static size_t GetRequestContextSize();
+
+    ~CUsbDkRedirectorStrategy() {};
 
 private:
     void DoControlTransfer(CRedirectorRequest &WdfRequest, WDFMEMORY DataBuffer);

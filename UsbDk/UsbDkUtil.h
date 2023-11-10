@@ -632,10 +632,11 @@ public:
         return Append(StringH);
     }
 
-    void Swap(CString &OtherString) {
-        UNICODE_STRING TempString = m_String;
+    void Transfer(CString &OtherString) {
         m_String = OtherString.m_String;
-        OtherString.m_String = TempString;
+        OtherString.m_String.Length = 0;
+        OtherString.m_String.MaximumLength = 0;
+        OtherString.m_String.Buffer = nullptr;
     }
 
     CString()

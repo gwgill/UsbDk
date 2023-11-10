@@ -120,6 +120,8 @@ void CString::Destroy()
 {
     if (m_String.Buffer != nullptr)
     {
+        m_String.Length = 0;
+        m_String.MaximumLength = 0;
         ExFreePoolWithTag(m_String.Buffer, 'SUHR');
         m_String.Buffer = nullptr;
     }
