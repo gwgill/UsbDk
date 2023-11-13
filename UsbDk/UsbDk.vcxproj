@@ -1343,7 +1343,7 @@
       <PreprocessorDefinitions>_X86_=1;i386=1;STD_CALL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib;$(DDK_LIB_PATH)\usbd.lib</AdditionalDependencies>
     </Link>
     <ResourceCompile>
       <PreprocessorDefinitions>USBDK_MAJOR_VERSION=$(USBDK_MAJOR_VERSION);USBDK_MINOR_VERSION=$(USBDK_MINOR_VERSION);USBDK_BUILD_NUMBER=$(USBDK_BUILD_NUMBER);_X86_=1;i386=1;STD_CALL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -1357,7 +1357,7 @@
       <PreprocessorDefinitions>_X86_=1;i386=1;STD_CALL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib;$(DDK_LIB_PATH)\usbd.lib</AdditionalDependencies>
     </Link>
     <ResourceCompile>
       <PreprocessorDefinitions>USBDK_MAJOR_VERSION=$(USBDK_MAJOR_VERSION);USBDK_MINOR_VERSION=$(USBDK_MINOR_VERSION);USBDK_BUILD_NUMBER=$(USBDK_BUILD_NUMBER);_X86_=1;i386=1;STD_CALL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -1371,7 +1371,7 @@
       <PreprocessorDefinitions>_X86_=1;i386=1;STD_CALL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib;$(DDK_LIB_PATH)\usbd.lib</AdditionalDependencies>
     </Link>
     <ResourceCompile>
       <PreprocessorDefinitions>USBDK_MAJOR_VERSION=$(USBDK_MAJOR_VERSION);USBDK_MINOR_VERSION=$(USBDK_MINOR_VERSION);USBDK_BUILD_NUMBER=$(USBDK_BUILD_NUMBER);_X86_=1;i386=1;STD_CALL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -1385,7 +1385,7 @@
       <PreprocessorDefinitions>_X86_=1;i386=1;STD_CALL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib;$(DDK_LIB_PATH)\usbd.lib</AdditionalDependencies>
     </Link>
     <ResourceCompile>
       <PreprocessorDefinitions>USBDK_MAJOR_VERSION=$(USBDK_MAJOR_VERSION);USBDK_MINOR_VERSION=$(USBDK_MINOR_VERSION);USBDK_BUILD_NUMBER=$(USBDK_BUILD_NUMBER);_X86_=1;i386=1;STD_CALL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -1399,7 +1399,7 @@
       <PreprocessorDefinitions>_X86_=1;i386=1;STD_CALL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib;$(DDK_LIB_PATH)\usbd.lib</AdditionalDependencies>
     </Link>
     <ResourceCompile>
       <PreprocessorDefinitions>USBDK_MAJOR_VERSION=$(USBDK_MAJOR_VERSION);USBDK_MINOR_VERSION=$(USBDK_MINOR_VERSION);USBDK_BUILD_NUMBER=$(USBDK_BUILD_NUMBER);_X86_=1;i386=1;STD_CALL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -1413,7 +1413,7 @@
       <PreprocessorDefinitions>_X86_=1;i386=1;STD_CALL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib;$(DDK_LIB_PATH)\usbd.lib</AdditionalDependencies>
     </Link>
     <ResourceCompile>
       <PreprocessorDefinitions>USBDK_MAJOR_VERSION=$(USBDK_MAJOR_VERSION);USBDK_MINOR_VERSION=$(USBDK_MINOR_VERSION);USBDK_BUILD_NUMBER=$(USBDK_BUILD_NUMBER);_X86_=1;i386=1;STD_CALL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -1427,7 +1427,7 @@
       <PreprocessorDefinitions>_X86_=1;i386=1;STD_CALL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib;$(DDK_LIB_PATH)\usbd.lib</AdditionalDependencies>
     </Link>
     <ResourceCompile>
       <PreprocessorDefinitions>USBDK_MAJOR_VERSION=$(USBDK_MAJOR_VERSION);USBDK_MINOR_VERSION=$(USBDK_MINOR_VERSION);USBDK_BUILD_NUMBER=$(USBDK_BUILD_NUMBER);_X86_=1;i386=1;STD_CALL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -1441,7 +1441,7 @@
       <PreprocessorDefinitions>_X86_=1;i386=1;STD_CALL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib;$(DDK_LIB_PATH)\usbd.lib</AdditionalDependencies>
     </Link>
     <ResourceCompile>
       <PreprocessorDefinitions>USBDK_MAJOR_VERSION=$(USBDK_MAJOR_VERSION);USBDK_MINOR_VERSION=$(USBDK_MINOR_VERSION);USBDK_BUILD_NUMBER=$(USBDK_BUILD_NUMBER);_X86_=1;i386=1;STD_CALL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -1455,7 +1455,7 @@
       <PreprocessorDefinitions>_X86_=1;i386=1;STD_CALL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib;$(DDK_LIB_PATH)\usbd.lib</AdditionalDependencies>
     </Link>
     <ResourceCompile>
       <PreprocessorDefinitions>USBDK_MAJOR_VERSION=$(USBDK_MAJOR_VERSION);USBDK_MINOR_VERSION=$(USBDK_MINOR_VERSION);USBDK_BUILD_NUMBER=$(USBDK_BUILD_NUMBER);_X86_=1;i386=1;STD_CALL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -1469,7 +1469,7 @@
       <PreprocessorDefinitions>_X86_=1;i386=1;STD_CALL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib;$(DDK_LIB_PATH)\usbd.lib</AdditionalDependencies>
     </Link>
     <ResourceCompile>
       <PreprocessorDefinitions>USBDK_MAJOR_VERSION=$(USBDK_MAJOR_VERSION);USBDK_MINOR_VERSION=$(USBDK_MINOR_VERSION);USBDK_BUILD_NUMBER=$(USBDK_BUILD_NUMBER);_X86_=1;i386=1;STD_CALL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -1483,7 +1483,7 @@
       <PreprocessorDefinitions>_X86_=1;i386=1;STD_CALL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib;$(DDK_LIB_PATH)\usbd.lib</AdditionalDependencies>
     </Link>
     <ResourceCompile>
       <PreprocessorDefinitions>USBDK_MAJOR_VERSION=$(USBDK_MAJOR_VERSION);USBDK_MINOR_VERSION=$(USBDK_MINOR_VERSION);USBDK_BUILD_NUMBER=$(USBDK_BUILD_NUMBER);_X86_=1;i386=1;STD_CALL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -1502,7 +1502,7 @@
       </RuntimeLibrary>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libcntpr.lib;ntstrsafe.lib;wdmsec.lib;BUFFEROVERFLOWK.LIB;NTOSKRNL.LIB;HAL.LIB;WMILIB.LIB;WDFLDR.LIB;WDFDRIVERENTRY.LIB</AdditionalDependencies>
+      <AdditionalDependencies>libcntpr.lib;ntstrsafe.lib;wdmsec.lib;BUFFEROVERFLOWK.LIB;NTOSKRNL.LIB;HAL.LIB;WMILIB.LIB;WDFLDR.LIB;WDFDRIVERENTRY.LIB;usbd.lib</AdditionalDependencies>
       <Version>5.1</Version>
       <MinimumRequiredVersion>5.1</MinimumRequiredVersion>
       <EntryPointSymbol>FxDriverEntry@8</EntryPointSymbol>
@@ -1528,7 +1528,7 @@
       </RuntimeLibrary>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libcntpr.lib;ntstrsafe.lib;wdmsec.lib;BUFFEROVERFLOWK.LIB;NTOSKRNL.LIB;HAL.LIB;WMILIB.LIB;WDFLDR.LIB;WDFDRIVERENTRY.LIB</AdditionalDependencies>
+      <AdditionalDependencies>libcntpr.lib;ntstrsafe.lib;wdmsec.lib;BUFFEROVERFLOWK.LIB;NTOSKRNL.LIB;HAL.LIB;WMILIB.LIB;WDFLDR.LIB;WDFDRIVERENTRY.LIB;usbd.lib</AdditionalDependencies>
       <Version>5.1</Version>
       <MinimumRequiredVersion>5.1</MinimumRequiredVersion>
       <EntryPointSymbol>FxDriverEntry@8</EntryPointSymbol>
@@ -1549,7 +1549,7 @@
       <PreprocessorDefinitions>_X86_=1;i386=1;STD_CALL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib;$(DDK_LIB_PATH)\usbd.lib</AdditionalDependencies>
     </Link>
     <ResourceCompile>
       <PreprocessorDefinitions>USBDK_MAJOR_VERSION=$(USBDK_MAJOR_VERSION);USBDK_MINOR_VERSION=$(USBDK_MINOR_VERSION);USBDK_BUILD_NUMBER=$(USBDK_BUILD_NUMBER);_X86_=1;i386=1;STD_CALL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -1568,7 +1568,7 @@
       </RuntimeLibrary>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libcntpr.lib;ntstrsafe.lib;wdmsec.lib;BUFFEROVERFLOWK.LIB;NTOSKRNL.LIB;HAL.LIB;WMILIB.LIB;WDFLDR.LIB;WDFDRIVERENTRY.LIB</AdditionalDependencies>
+      <AdditionalDependencies>libcntpr.lib;ntstrsafe.lib;wdmsec.lib;BUFFEROVERFLOWK.LIB;NTOSKRNL.LIB;HAL.LIB;WMILIB.LIB;WDFLDR.LIB;WDFDRIVERENTRY.LIB;usbd.lib</AdditionalDependencies>
       <Version>5.1</Version>
       <MinimumRequiredVersion>5.1</MinimumRequiredVersion>
       <EntryPointSymbol>FxDriverEntry@8</EntryPointSymbol>
@@ -1586,7 +1586,7 @@
       <PreprocessorDefinitions>_WIN64;_AMD64_;AMD64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib;$(DDK_LIB_PATH)\usbd.lib</AdditionalDependencies>
     </Link>
     <ResourceCompile>
       <PreprocessorDefinitions>USBDK_MAJOR_VERSION=$(USBDK_MAJOR_VERSION);USBDK_MINOR_VERSION=$(USBDK_MINOR_VERSION);USBDK_BUILD_NUMBER=$(USBDK_BUILD_NUMBER);_WIN64;_AMD64_=1;AMD64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -1600,7 +1600,7 @@
       <PreprocessorDefinitions>_WIN64;_AMD64_;AMD64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib;$(DDK_LIB_PATH)\usbd.lib</AdditionalDependencies>
     </Link>
     <ResourceCompile>
       <PreprocessorDefinitions>USBDK_MAJOR_VERSION=$(USBDK_MAJOR_VERSION);USBDK_MINOR_VERSION=$(USBDK_MINOR_VERSION);USBDK_BUILD_NUMBER=$(USBDK_BUILD_NUMBER);_WIN64;_AMD64_=1;AMD64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -1628,7 +1628,7 @@
       <PreprocessorDefinitions>_WIN64;_AMD64_;AMD64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib;$(DDK_LIB_PATH)\usbd.lib</AdditionalDependencies>
     </Link>
     <ResourceCompile>
       <PreprocessorDefinitions>USBDK_MAJOR_VERSION=$(USBDK_MAJOR_VERSION);USBDK_MINOR_VERSION=$(USBDK_MINOR_VERSION);USBDK_BUILD_NUMBER=$(USBDK_BUILD_NUMBER);_WIN64;_AMD64_=1;AMD64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -1642,7 +1642,7 @@
       <PreprocessorDefinitions>_WIN64;_AMD64_;AMD64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib;$(DDK_LIB_PATH)\usbd.lib</AdditionalDependencies>
     </Link>
     <ResourceCompile>
       <PreprocessorDefinitions>USBDK_MAJOR_VERSION=$(USBDK_MAJOR_VERSION);USBDK_MINOR_VERSION=$(USBDK_MINOR_VERSION);USBDK_BUILD_NUMBER=$(USBDK_BUILD_NUMBER);_WIN64;_AMD64_=1;AMD64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -1656,7 +1656,7 @@
       <PreprocessorDefinitions>_WIN64;_AMD64_;AMD64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib;$(DDK_LIB_PATH)\usbd.lib</AdditionalDependencies>
     </Link>
     <ResourceCompile>
       <PreprocessorDefinitions>USBDK_MAJOR_VERSION=$(USBDK_MAJOR_VERSION);USBDK_MINOR_VERSION=$(USBDK_MINOR_VERSION);USBDK_BUILD_NUMBER=$(USBDK_BUILD_NUMBER);_WIN64;_AMD64_=1;AMD64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -1670,7 +1670,7 @@
       <PreprocessorDefinitions>_WIN64;_AMD64_;AMD64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib;$(DDK_LIB_PATH)\usbd.lib</AdditionalDependencies>
     </Link>
     <ResourceCompile>
       <PreprocessorDefinitions>USBDK_MAJOR_VERSION=$(USBDK_MAJOR_VERSION);USBDK_MINOR_VERSION=$(USBDK_MINOR_VERSION);USBDK_BUILD_NUMBER=$(USBDK_BUILD_NUMBER);_WIN64;_AMD64_=1;AMD64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -1684,7 +1684,7 @@
       <PreprocessorDefinitions>_WIN64;_AMD64_;AMD64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib;$(DDK_LIB_PATH)\usbd.lib</AdditionalDependencies>
     </Link>
     <ResourceCompile>
       <PreprocessorDefinitions>USBDK_MAJOR_VERSION=$(USBDK_MAJOR_VERSION);USBDK_MINOR_VERSION=$(USBDK_MINOR_VERSION);USBDK_BUILD_NUMBER=$(USBDK_BUILD_NUMBER);_WIN64;_AMD64_=1;AMD64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -1698,7 +1698,7 @@
       <PreprocessorDefinitions>_WIN64;_AMD64_;AMD64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib;$(DDK_LIB_PATH)\usbd.lib</AdditionalDependencies>
     </Link>
     <ResourceCompile>
       <PreprocessorDefinitions>USBDK_MAJOR_VERSION=$(USBDK_MAJOR_VERSION);USBDK_MINOR_VERSION=$(USBDK_MINOR_VERSION);USBDK_BUILD_NUMBER=$(USBDK_BUILD_NUMBER);_WIN64;_AMD64_=1;AMD64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -1712,7 +1712,7 @@
       <PreprocessorDefinitions>_WIN64;_AMD64_;AMD64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib;$(DDK_LIB_PATH)\usbd.lib</AdditionalDependencies>
     </Link>
     <ResourceCompile>
       <PreprocessorDefinitions>USBDK_MAJOR_VERSION=$(USBDK_MAJOR_VERSION);USBDK_MINOR_VERSION=$(USBDK_MINOR_VERSION);USBDK_BUILD_NUMBER=$(USBDK_BUILD_NUMBER);_WIN64;_AMD64_=1;AMD64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -1726,7 +1726,7 @@
       <PreprocessorDefinitions>_WIN64;_AMD64_;AMD64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib;$(DDK_LIB_PATH)\usbd.lib</AdditionalDependencies>
     </Link>
     <ResourceCompile>
       <PreprocessorDefinitions>USBDK_MAJOR_VERSION=$(USBDK_MAJOR_VERSION);USBDK_MINOR_VERSION=$(USBDK_MINOR_VERSION);USBDK_BUILD_NUMBER=$(USBDK_BUILD_NUMBER);_WIN64;_AMD64_=1;AMD64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -1743,7 +1743,7 @@
       <AssemblerOutput>All</AssemblerOutput>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libcntpr.lib;ntstrsafe.lib;wdmsec.lib;BUFFEROVERFLOWK.LIB;NTOSKRNL.LIB;HAL.LIB;WMILIB.LIB;WDFLDR.LIB;WDFDRIVERENTRY.LIB</AdditionalDependencies>
+      <AdditionalDependencies>libcntpr.lib;ntstrsafe.lib;wdmsec.lib;BUFFEROVERFLOWK.LIB;NTOSKRNL.LIB;HAL.LIB;WMILIB.LIB;WDFLDR.LIB;WDFDRIVERENTRY.LIB;usbd.lib</AdditionalDependencies>
       <Version>5.2</Version>
       <MinimumRequiredVersion>5.2</MinimumRequiredVersion>
       <EntryPointSymbol>FxDriverEntry</EntryPointSymbol>
@@ -1765,7 +1765,7 @@
       <AssemblerOutput>All</AssemblerOutput>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libcntpr.lib;ntstrsafe.lib;wdmsec.lib;BUFFEROVERFLOWK.LIB;NTOSKRNL.LIB;HAL.LIB;WMILIB.LIB;WDFLDR.LIB;WDFDRIVERENTRY.LIB</AdditionalDependencies>
+      <AdditionalDependencies>libcntpr.lib;ntstrsafe.lib;wdmsec.lib;BUFFEROVERFLOWK.LIB;NTOSKRNL.LIB;HAL.LIB;WMILIB.LIB;WDFLDR.LIB;WDFDRIVERENTRY.LIB;usbd.lib</AdditionalDependencies>
       <Version>5.2</Version>
       <MinimumRequiredVersion>5.2</MinimumRequiredVersion>
       <EntryPointSymbol>FxDriverEntry</EntryPointSymbol>
@@ -1784,7 +1784,7 @@
       <PreprocessorDefinitions>_WIN64;_AMD64_;AMD64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies);$(DDK_LIB_PATH)\usbdex.lib;$(DDK_LIB_PATH)\ntstrsafe.lib;$(DDK_LIB_PATH)\wdmsec.lib;$(DDK_LIB_PATH)\usbd.lib</AdditionalDependencies>
     </Link>
     <ResourceCompile>
       <PreprocessorDefinitions>USBDK_MAJOR_VERSION=$(USBDK_MAJOR_VERSION);USBDK_MINOR_VERSION=$(USBDK_MINOR_VERSION);USBDK_BUILD_NUMBER=$(USBDK_BUILD_NUMBER);_WIN64;_AMD64_=1;AMD64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -1803,7 +1803,7 @@
       </RuntimeLibrary>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libcntpr.lib;ntstrsafe.lib;wdmsec.lib;BUFFEROVERFLOWK.LIB;NTOSKRNL.LIB;HAL.LIB;WMILIB.LIB;WDFLDR.LIB;WDFDRIVERENTRY.LIB</AdditionalDependencies>
+      <AdditionalDependencies>libcntpr.lib;ntstrsafe.lib;wdmsec.lib;BUFFEROVERFLOWK.LIB;NTOSKRNL.LIB;HAL.LIB;WMILIB.LIB;WDFLDR.LIB;WDFDRIVERENTRY.LIB;usbd.lib</AdditionalDependencies>
       <Version>5.2</Version>
       <MinimumRequiredVersion>5.2</MinimumRequiredVersion>
       <EntryPointSymbol>FxDriverEntry</EntryPointSymbol>

@@ -1782,7 +1782,7 @@ NTSTATUS CUsbDkControlDevice::ReloadHasDriverList()
     
         /* Now we truncate m_RootName at the end of "\Enum\USB\" */
         if (!RootHolder.TruncateAfter(TEXT("\\Enum\\USB\\"))) {
-            return STATUS_FILE_NOT_AVAILABLE;        /* Hmm. */
+            return STATUS_REGISTRY_IO_FAILED;        /* Hmm. */
         }
         
         m_RootName.Create(RootHolder);

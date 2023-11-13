@@ -47,7 +47,7 @@ goto :eof
 :make1tmf
 pushd %1
 echo Making TMF in %1
-"C:\Program Files (x86)\Windows Kits\10\bin\x86\tracepdb.exe" -s -o .\%_f%.tmf
+"%ProgramFiles(x86)%\Windows Kits\10\bin\x86\tracepdb.exe" -s -o .\%_f%.tmf
 popd
 type %1\%_f%.tmf >> %_f%.tmf
 del %1\%_f%.??f
@@ -56,8 +56,8 @@ goto :eof
 :BUILD_MSI
 
 pushd Tools\Installer
-
 SET UsbDkVersion="%USBDK_MAJOR_VERSION%.%USBDK_MINOR_VERSION%.%USBDK_BUILD_NUMBER%"
+echo Building Version %UsbDkVersion% MSI
 buildmsi.bat %2
 
 popd
