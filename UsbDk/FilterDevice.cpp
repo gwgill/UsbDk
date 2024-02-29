@@ -697,6 +697,7 @@ bool CUsbDkFilterDevice::CStrategist::SelectStrategy(PDEVICE_OBJECT DevObj)
          DevID->Match(L"NUSB3\\ROOT_HUB30")     ||
          DevID->Match(L"IUSB3\\ROOT_HUB30")     ||
          DevID->Match(L"IUSB3\\ROOT_HUB31")     ||
+         DevID->Match(L"ITRUSB3\\ROOT_HUB31")   ||
          DevID->Match(L"AMDUSB3\\ROOT_HUB3")    ||
          DevID->Match(L"AMDUSB3\\ROOT_HUB31")))
     {
